@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline — WonderTech Pulse</title>
+  <meta name="theme-color" content="#12151A">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --bg:#12151A; --panel:#1F242D; --line:#2E3542; --text:#E7EAF0; --muted:#9AA5B4; --amber:#F59E0B; --red:#EF4444; --cyan:#0EA5E9; --orange:#F97316; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", system-ui, sans-serif; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 16px; }
+    h1 { font-size: 20px; margin: 0; flex: 1; }
+    h1 span { color: var(--amber); }
+    .pill { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(239,68,68,.6); color: var(--red); }
+    .pill.on { border-color: rgba(34,197,94,.6); color: #22C55E; }
+    a.btn, button { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--amber); background: var(--amber); color: #1A1204; font-weight: 700; text-decoration: none; cursor: pointer; font-size: 13px; }
+    a.btn.alt { background: transparent; color: var(--text); border-color: var(--line); }
+    p { color: var(--muted); }
+    input { width: 100%; height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 15px; margin: 6px 0 14px; }
+    input:focus { outline: 2px solid var(--cyan); }
+    .item { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid #64748B; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+    .item.critical { border-left-color: var(--red); } .item.high { border-left-color: var(--orange); } .item.medium { border-left-color: var(--amber); } .item.low { border-left-color: var(--cyan); }
+    .item h3 { margin: 0 0 4px; font-size: 14px; }
+    .meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .star { color: var(--amber); font-weight: 700; }
+    .sec { margin: 18px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .empty { border: 1px dashed var(--line); border-radius: 8px; padding: 28px; text-align: center; color: var(--muted); }
+    code { font-family: ui-monospace, Consolas, monospace; background: var(--panel); padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>WonderTech <span>Pulse</span> · Offline lookup</h1>
+    <span id="net" class="pill">OFFLINE</span>
+    <button type="button" id="retry">Retry connection</button>
+    <a class="btn alt" href="./">Open app</a>
+  </header>
+  <p>The network is unavailable, but your local patch &amp; advisory archive is still searchable below. Everything shown comes from this device's IndexedDB.</p>
+  <label for="q" class="sec" style="display:block">Search CVE, KB, component, version or keyword</label>
+  <input id="q" type="search" placeholder="e.g. historian, 2023 R2, modbus, CVE…" autocomplete="off" autofocus>
+  <div id="out"></div>
+</div>
+<script src="js/db.js"></script>
+<script>
+(function () {
+  'use strict';
+  var all = [], states = {};
+  var out = document.getElementById('out');
+  var q = document.getElementById('q');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function fmt(ts) { return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+  function hay(it) { return [it.title, it.summary, it.component, it.category, it.severity, it.kb, it.cveId, it.fixedIn, (it.versions || []).join(' '), (it.tags || []).join(' ')].join(' ').toLowerCase(); }
+
+  function card(it) {
+    var st = states[it.id] || {};
+    return '<div class="item ' + esc(it.severity) + '">' +
+      '<h3>' + (st.bookmarked ? '<span class="star">★ </span>' : '') + esc(it.title) + '</h3>' +
+      '<div class="meta"><span>' + esc((it.severity || '').toUpperCase()) + '</span><span>' + esc(it.component) + '</span><span>' + esc(it.category) + '</span><span>' + fmt(it.timestamp) + '</span>' +
+      (it.kb ? '<span>' + esc(it.kb) + '</span>' : '') + (it.cveId ? '<span>' + esc(it.cveId) + (it.cvss != null ? ' · CVSS ' + esc(it.cvss) : '') + '</span>' : '') + '</div>' +
+      (it.fixedIn ? '<div class="meta" style="margin-top:4px">Fixed in: ' + esc(it.fixedIn) + '</div>' : '') +
+      (st.note ? '<div class="meta" style="margin-top:4px;color:#E7EAF0">Note: ' + esc(st.note) + '</div>' : '') +
+      '</div>';
+  }
+
+  function render() {
+    var terms = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    var list = all.filter(function (it) {
+      if (!terms.length) return true;
+      var h = hay(it);
+      return terms.every(function (t) { return h.indexOf(t) !== -1; });
+    });
+    var rank = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    list.sort(function (a, b) {
+      var fa = states[a.id] && states[a.id].bookmarked ? 0 : 1, fb = states[b.id] && states[b.id].bookmarked ? 0 : 1;
+      if (fa !== fb) return fa - fb;
+      if (rank[a.severity] !== rank[b.severity]) return (rank[a.severity] == null ? 9 : rank[a.severity]) - (rank[b.severity] == null ? 9 : rank[b.severity]);
+      return b.timestamp - a.timestamp;
+    });
+    if (!all.length) {
+      out.innerHTML = '<div class="empty">No local data found yet. Open the app once while online to build your offline archive.</div>';
+      return;
+    }
+    if (!list.length) { out.innerHTML = '<div class="empty">No records match “' + esc(q.value) + '”.</div>'; return; }
+    var flagged = list.filter(function (i) { return states[i.id] && states[i.id].bookmarked; });
+    var rest = list.filter(function (i) { return !(states[i.id] && states[i.id].bookmarked); });
+    var html = '';
+    if (flagged.length) html += '<div class="sec">Flagged for shutdown plan (' + flagged.length + ')</div>' + flagged.map(card).join('');
+    html += '<div class="sec">' + (flagged.length ? 'Other records' : 'Records') + ' (' + rest.length + ')</div>' + rest.slice(0, 200).map(card).join('');
+    if (rest.length > 200) html += '<p>Showing first 200 — refine your search.</p>';
+    out.innerHTML = html;
+  }
+
+  function setNet() {
+    var n = document.getElementById('net');
+    n.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+    n.className = 'pill' + (navigator.onLine ? ' on' : '');
+  }
+  window.addEventListener('online', function () { setNet(); });
+  window.addEventListener('offline', setNet);
+  document.getElementById('retry').addEventListener('click', function () { location.href = './'; });
+  q.addEventListener('input', render);
+  setNet();
+
+  if (!window.WTP_DB) { out.innerHTML = '<div class="empty">Local database engine unavailable.</div>'; return; }
+  window.WTP_DB.snapshot().then(function (snap) {
+    all = snap.items; states = snap.states; render();
+  }).catch(function (e) {
+    out.innerHTML = '<div class="empty">Could not read local archive: ' + esc(e.message) + '</div>';
+  });
+})();
+</script>
+</body>
+</html>

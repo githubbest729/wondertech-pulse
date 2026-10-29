@@ -1,0 +1,86 @@
+{
+  "id": "wondertech-pulse",
+  "name": "WonderTech Pulse — Wonderware / AVEVA Patch & Advisory Aggregator",
+  "short_name": "WT Pulse",
+  "description": "Offline-first SCADA intelligence: AVEVA / Wonderware security bulletins, CISA ICS advisories, hotfixes and patch notes with a 3-year local archive.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#12151A",
+  "theme_color": "#12151A",
+  "categories": ["utilities", "productivity", "business", "news"],
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "handle_links": "preferred",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/narrow-mobile.png",
+      "sizes": "540x960",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Critical advisories on a field tablet or phone"
+    },
+    {
+      "src": "screenshots/wide-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop view with Window Controls Overlay"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Critical Advisories",
+      "short_name": "Critical",
+      "description": "Unreviewed critical security patches and advisories",
+      "url": "./?view=critical&source=shortcut",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Patch Matrix",
+      "short_name": "Patches",
+      "description": "Release and hotfix matrix by Wonderware component",
+      "url": "./?view=matrix&source=shortcut",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Add Custom RSS Feed",
+      "short_name": "Add feed",
+      "description": "Subscribe to another RSS, Atom or JSON feed",
+      "url": "./?action=add-feed&source=shortcut",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "protocol_handlers": [
+    { "protocol": "web+wondertech", "url": "./?protocol=%s" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./?source=file",
+      "name": "WonderTech Pulse data",
+      "accept": {
+        "application/json": [".json", ".wtp"],
+        "application/rss+xml": [".rss"],
+        "application/atom+xml": [".atom"],
+        "application/xml": [".xml"],
+        "text/xml": [".xml"]
+      },
+      "launch_type": "single-client"
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": { "title": "share_title", "text": "share_text", "url": "share_url" }
+  }
+}
