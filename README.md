@@ -1,4 +1,92 @@
 # WonderTech Pulse
+# WonderTech Pulse
+
+<p align="center">
+  <img src="favicon.svg" alt="WonderTech Pulse Logo" width="80" height="80" />
+</p>
+
+<p align="center">
+  <strong>Mission-Critical SCADA Intelligence, Patch-Matrix & Shutdown Planning Aggregator</strong><br />
+  <em>Offline-First Progressive Web Application for Control Room Operations & Field Workstations</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Progressive_Web_App-0EA5E9?style=for-the-badge&logo=pwa" alt="PWA" />
+  <img src="https://img.shields.io/badge/SCADA-AVEVA_%2F_Wonderware-1E293B?style=for-the-badge&logo=scada" alt="SCADA" />
+  <img src="https://img.shields.io/badge/Standards-WCAG_2.2_AA-059669?style=for-the-badge" alt="WCAG AA" />
+  <img src="https://img.shields.io/badge/Storage-Persistent_IndexedDB_(3--Year)-F59E0B?style=for-the-badge" alt="Storage" />
+  <img src="https://img.shields.io/badge/Security-CISA_ICS--CERT-DC2626?style=for-the-badge" alt="Security" />
+</p>
+
+---
+
+## 🏢 Operational Deployment Context
+
+| Attribute | Specification |
+| :--- | :--- |
+| **Organization** | Al Gurg Automation and Controls (AGAC) |
+| **Operational Division** | SCADA Engineering & Infrastructure Commissioning |
+| **Location** | Dubai, United Arab Emirates |
+| **Target Field Devices** | Panasonic Toughbook, Getac Rugged Field Tablets, Control Desk Dual-Monitor Consoles, iPad Pro (Field Service) |
+| **Ecosystem Coverage** | AVEVA System Platform, InTouch HMI / OMI, Historian Server, Application Server, OI / DA Communication Drivers, Citect SCADA |
+
+> ⚠️ **Seed Data Operational Notice:** Built-in seed records marked `SEED` are illustrative engineering models designed to demonstrate schema functionality. They do not constitute certified vendor advisories. In production, SCADA engineers must ingest live feeds via verified sources and validate all remediation strategies against AVEVA Security Central and CISA ICS-CERT advisories prior to executing downtime operations.
+
+---
+
+## 🏗️ System Architecture & Data Flow
+
+```mermaid
+flowchart TB
+    subgraph INGESTION["1. Ingestion & Feed Engine"]
+        A1["AVEVA Security Central (RSS / XML)"]
+        A2["CISA ICS-CERT Advisories"]
+        A3["Vendor Patches & Tech Notes (.CSV / .JSON)"]
+        A4["Manual Engineering Imports (.XML / .JSON)"]
+    end
+
+    subgraph CLIENT["2. Client Runtime (Offline-First PWA Shell)"]
+        B1["Service Worker (sw.js)
+Cache-First App Shell | Static Routing"]
+        B2["Navigation & View Router (app.js)
+WCO | Badging API | Deep Linking"]
+        B3["Auto-Classifier Engine
+Regex Parsing: Component | Severity | Reboot"]
+        B4["Local Cryptographic Engine
+SubtleCrypto: Client-Side SHA-256 Verifier"]
+    end
+
+    subgraph STORAGE["3. Persistent Storage Engine (IndexedDB)"]
+        C1[("articles_feed
+(Transient - 3-Year Retention)")]
+        C2[("patch_notes
+(Permanent Repository)")]
+        C3[("cisa_advisories
+(Permanent Registry)")]
+        C4[("bookmarks_and_read
+(Shutdown Plan & Notes)")]
+        C5[("sync_audit_log
+(Compliance Audit Trail)")]
+    end
+
+    subgraph PRESENTATION["4. Operations & Execution"]
+        D1["Intel Feed & Matrix
+Compact List / Card Grid"]
+        D2["Detail Slide-Over Drawer
+Downtime | Node | Rollback"]
+        D3["Shutdown Plan Work Order
+ISO 9001 Sign-off Schedule"]
+        D4["Multi-Format Exporters
+Excel (BOM Protected) | PDF | JSON"]
+    end
+
+    INGESTION -->|CORS Proxy / Direct Stream| B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> STORAGE
+    STORAGE <-->|Bidirectional Sync| PRESENTATION
+    PRESENTATION --> B4
+
 Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
 
 Prepared for: SCADA Engineering
