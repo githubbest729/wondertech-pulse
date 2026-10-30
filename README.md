@@ -35,8 +35,9 @@
 
 ## 🏗️ System Architecture & Data Flow
 
-```mermaid
+### 🏗️ System Architecture & Data Flow
 
+```mermaid
 flowchart TB
     subgraph INGESTION["1. Ingestion & Feed Engine"]
         A1["AVEVA Security Central (RSS / XML)"]
@@ -48,12 +49,12 @@ flowchart TB
     subgraph CLIENT["2. Client Runtime (Offline-First PWA Shell)"]
         B1["Service Worker (sw.js)<br/>Cache-First App Shell | Static Routing"]
         B2["Navigation & View Router (app.js)<br/>WCO | Badging API | Deep Linking"]
-        B3["Auto-Classifier Engine<br/>Regex Parsing: Component | Severity | Reboot"]
+        B3["Auto-Classifier Engine<br/>Regex: Component | Severity | Reboot"]
         B4["Local Cryptographic Engine<br/>SubtleCrypto: Client-Side SHA-256 Verifier"]
     end
 
     subgraph STORAGE["3. Persistent Storage Engine (IndexedDB)"]
-        C1[("articles_feed<br/>(Transient - 3-Year Retention)")]
+        C1[("articles_feed<br/>(Transient - 3-Yr Retention)")]
         C2[("patch_notes<br/>(Permanent Repository)")]
         C3[("cisa_advisories<br/>(Permanent Registry)")]
         C4[("bookmarks_and_read<br/>(Shutdown Plan & Notes)")]
@@ -61,18 +62,29 @@ flowchart TB
     end
 
     subgraph PRESENTATION["4. Operations & Execution"]
-        D1["Intel Feed & Matrix<br/>Compact List / Card Grid"]
+        D1["Intel Feed & Patch Matrix<br/>Compact List / Card Grid"]
         D2["Detail Slide-Over Drawer<br/>Downtime | Node | Rollback"]
         D3["Shutdown Plan Work Order<br/>ISO 9001 Sign-off Schedule"]
         D4["Multi-Format Exporters<br/>Excel (BOM Protected) | PDF | JSON"]
     end
 
-    INGESTION -->|CORS Proxy / Direct Stream| B1
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+    A4 --> B2
     B1 --> B2
     B2 --> B3
-    B3 --> STORAGE
-    STORAGE <-->|Bidirectional Sync| PRESENTATION
-    PRESENTATION --> B4
+    B3 --> C1
+    B3 --> C2
+    B3 --> C3
+    C4 <--> B2
+    C5 <--> B2
+    B2 --> D1
+    D1 --> D2
+    D2 --> D3
+    D3 --> D4
+    D2 --> B4
+```
 
 Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
 
