@@ -1,7 +1,7 @@
 # WonderTech Pulse
 Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
 
-Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.).
+Prepared for: SCADA Engineering
 
 > **Seed data notice.** The built-in records are *illustrative* examples that demonstrate the data model. They are badged `SEED` and are **not** official bulletins; CVE IDs use the placeholder form `CVE-SEED-000x`, and checksums are intentionally blank. Add real feeds / import vendor data, then remove the seed records under **Storage & Sync → Delete seed records**. Always verify advisories and patch applicability against AVEVA Security Central, AVEVA Software Support and CISA before changing a production system.
 
