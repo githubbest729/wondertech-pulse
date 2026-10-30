@@ -36,7 +36,6 @@
 ## 🏗️ System Architecture & Data Flow
 
 ```mermaid
-
 flowchart TB
     subgraph INGESTION["1. Ingestion & Feed Engine"]
         A1["AVEVA Security Central (RSS / XML)"]
@@ -46,38 +45,25 @@ flowchart TB
     end
 
     subgraph CLIENT["2. Client Runtime (Offline-First PWA Shell)"]
-        B1["Service Worker (sw.js)
-Cache-First App Shell | Static Routing"]
-        B2["Navigation & View Router (app.js)
-WCO | Badging API | Deep Linking"]
-        B3["Auto-Classifier Engine
-Regex Parsing: Component | Severity | Reboot"]
-        B4["Local Cryptographic Engine
-SubtleCrypto: Client-Side SHA-256 Verifier"]
+        B1["Service Worker (sw.js)<br/>Cache-First App Shell | Static Routing"]
+        B2["Navigation & View Router (app.js)<br/>WCO | Badging API | Deep Linking"]
+        B3["Auto-Classifier Engine<br/>Regex Parsing: Component | Severity | Reboot"]
+        B4["Local Cryptographic Engine<br/>SubtleCrypto: Client-Side SHA-256 Verifier"]
     end
 
     subgraph STORAGE["3. Persistent Storage Engine (IndexedDB)"]
-        C1[("articles_feed
-(Transient - 3-Year Retention)")]
-        C2[("patch_notes
-(Permanent Repository)")]
-        C3[("cisa_advisories
-(Permanent Registry)")]
-        C4[("bookmarks_and_read
-(Shutdown Plan & Notes)")]
-        C5[("sync_audit_log
-(Compliance Audit Trail)")]
+        C1[("articles_feed<br/>(Transient - 3-Year Retention)")]
+        C2[("patch_notes<br/>(Permanent Repository)")]
+        C3[("cisa_advisories<br/>(Permanent Registry)")]
+        C4[("bookmarks_and_read<br/>(Shutdown Plan & Notes)")]
+        C5[("sync_audit_log<br/>(Compliance Audit Trail)")]
     end
 
     subgraph PRESENTATION["4. Operations & Execution"]
-        D1["Intel Feed & Matrix
-Compact List / Card Grid"]
-        D2["Detail Slide-Over Drawer
-Downtime | Node | Rollback"]
-        D3["Shutdown Plan Work Order
-ISO 9001 Sign-off Schedule"]
-        D4["Multi-Format Exporters
-Excel (BOM Protected) | PDF | JSON"]
+        D1["Intel Feed & Matrix<br/>Compact List / Card Grid"]
+        D2["Detail Slide-Over Drawer<br/>Downtime | Node | Rollback"]
+        D3["Shutdown Plan Work Order<br/>ISO 9001 Sign-off Schedule"]
+        D4["Multi-Format Exporters<br/>Excel (BOM Protected) | PDF | JSON"]
     end
 
     INGESTION -->|CORS Proxy / Direct Stream| B1
