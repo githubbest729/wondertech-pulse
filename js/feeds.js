@@ -9,7 +9,7 @@
   'use strict';
 
   const DAY = 86400000;
-  const SEED_VERSION = 1;
+  const SEED_VERSION = 2; // v2: illustrative site / node / reboot / downtime planning fields
 
   const COMPONENTS = ['System Platform', 'InTouch', 'Historian', 'AppServer', 'DA/OI Drivers', 'SQL Server Integration'];
   const CATEGORIES = ['Critical Security Patch', 'Hotfix', 'Compatibility Advisory', 'New Feature Release', 'End of Life (EOL) Notice'];
@@ -23,6 +23,32 @@
   /* ------------------------------------------------------------------ */
   /* Seed dataset                                                        */
   /* ------------------------------------------------------------------ */
+
+  /* Illustrative planning assignments for the seed records (AGAC project sites). These are example values for
+   * demonstrating the planning columns, NOT vendor statements: the vendor KB decides whether a restart is needed.
+   * Engineers override any value per record in the detail drawer (their edits are stored separately and win). */
+  const SEED_PLAN = {};
+  (function () {
+    const P = (ids, site, targetNode, reboot, rebootNote, downtime, rollback) =>
+      ids.forEach((id) => { SEED_PLAN[id] = { site, targetNode, reboot, rebootNote, downtime, rollback }; });
+    P(['seed-art-01', 'seed-pat-01', 'seed-adv-01'], 'DWTC DCP', 'GR-NODE-01', 'yes', 'Node restart', '45 mins', 'moderate');
+    P(['seed-art-02', 'seed-adv-04'], 'Fujairah Tank Farm', 'WEB-GW-01', 'no', '', '15 mins', 'low');
+    P(['seed-art-04', 'seed-pat-03', 'seed-adv-02'], 'Dibba Tunnel', 'HIST-SRV-01', 'service', 'Service restart only', '10 mins', 'low');
+    P(['seed-art-03', 'seed-pat-02'], 'Hazardous Waste Plant', 'APP-AOS-02', 'no', '', '0 mins', 'low');
+    P(['seed-adv-06'], 'Hazardous Waste Plant', 'APP-AOS-02', 'service', 'Service restart only', '15 mins', 'moderate');
+    P(['seed-art-10', 'seed-pat-07', 'seed-adv-03'], 'Emirates Steel Mill', 'OI-COMM-01', 'service', 'Service restart only', '15 mins', 'low');
+    P(['seed-art-14', 'seed-adv-05'], 'Grain Reserve Silos', 'SQL-CLUSTER', 'no', '', '30 mins', 'moderate');
+    P(['seed-art-05'], 'Grain Reserve Silos', 'SQL-CLUSTER', 'no', '', '0 mins', 'low');
+    P(['seed-pat-04'], 'Dibba Tunnel', 'HIST-SRV-01', 'no', '', '10 mins', 'low');
+    P(['seed-art-06', 'seed-pat-05', 'seed-pat-10'], 'Emirates Steel Mill', 'OI-COMM-01', 'service', 'Service restart only', '15 mins', 'low');
+    P(['seed-art-11'], 'Emirates Steel Mill', 'OI-COMM-01', 'service', 'Service restart only', '15 mins', 'moderate');
+    P(['seed-art-07'], 'DWTC DCP', 'GR-NODE-01', 'no', '', '0 mins', 'high');
+    P(['seed-art-08'], 'Fujairah Tank Farm', 'WEB-GW-01', 'no', '', '0 mins', 'low');
+    P(['seed-art-09', 'seed-pat-06'], 'DWTC DCP', 'GR-NODE-01', 'yes', 'Node restart', '90 mins', 'high');
+    P(['seed-pat-09'], 'DWTC DCP', 'GR-NODE-01', 'yes', 'Node restart', '60 mins', 'moderate');
+    P(['seed-art-12'], 'Dibba Tunnel', 'HIST-SRV-01', 'no', '', '0 mins', 'low');
+    P(['seed-art-13', 'seed-pat-08'], 'Fujairah Tank Farm', 'HMI-NODE-01', 'service', 'Service restart only', '10 mins', 'low');
+  })();
 
   function seedRecords(now) {
     const out = [];
@@ -238,6 +264,7 @@
       versions: ['System Platform 2017 R2', 'System Platform 2020 R2 SP1'], fixedIn: 'Vendor patch', tags: ['deserialization', 'rce', 'deployment']
     });
 
+    out.forEach((r) => Object.assign(r, SEED_PLAN[r.id] || {}));
     return out;
   }
 
@@ -248,6 +275,16 @@
     if (!created) await DB.setMeta('createdAt', Date.now());
     const version = await DB.getMeta('seedVersion', 0);
     if (!force && version >= SEED_VERSION) return { seeded: false, added: 0 };
+    if (!force && version > 0) {
+      // Upgrade from an older seed: refresh the planning fields of seed records that still exist.
+      // Never re-adds seed records the engineer deleted, and keeps their original dates.
+      const snap = await DB.snapshot();
+      const upd = snap.items.filter((i) => i.seed && SEED_PLAN[i.id]).map((i) => Object.assign({}, i, SEED_PLAN[i.id]));
+      const r = await DB.upsertContent(upd);
+      await DB.setMeta('seedVersion', SEED_VERSION);
+      await DB.log('seed', 'Seed dataset upgraded to v' + SEED_VERSION + ' (' + r.updated + ' records refreshed)', { version: SEED_VERSION }, true);
+      return { seeded: true, added: 0 };
+    }
     const res = await DB.upsertContent(seedRecords(Date.now()), { onlyNew: true });
     await DB.setMeta('seedVersion', SEED_VERSION);
     await DB.log('seed', 'Seed dataset ' + (force ? 'restored' : 'installed') + ' (' + res.added + ' records added)', { version: SEED_VERSION, added: res.added }, true);
@@ -258,13 +295,17 @@
   const DEFAULT_FEEDS = [{
     name: 'CISA ICS advisories (AVEVA / Schneider filter)',
     url: 'https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml',
-    kind: 'advisory', filter: 'aveva|wonderware|intouch|citect|schneider electric'
+    kind: 'advisory', filter: 'aveva|wonderware|intouch|citect|schneider electric',
+    // CISA is not known to send CORS headers, so the browser would block a direct fetch. Until a proxy is configured
+    // (or "Try direct fetch" succeeds) the feed is not requested at all, which keeps the console clean.
+    needsProxy: true
   }];
 
   async function ensureDefaultFeeds() {
     const DB = root.WTP_DB;
-    if (await DB.getMeta('defaultFeedsV', 0) >= 1) return 0;
+    if (await DB.getMeta('defaultFeedsV', 0) >= 2) return 0;
     const feeds = await DB.getMeta('feeds', []);
+    feeds.forEach((f) => { if (f.builtin && f.needsProxy === undefined) f.needsProxy = true; }); // v1 → v2 migration
     let n = 0;
     for (const d of DEFAULT_FEEDS) {
       if (feeds.some((f) => f.url === d.url)) continue;
@@ -272,7 +313,7 @@
       n++;
     }
     await DB.setMeta('feeds', feeds);
-    await DB.setMeta('defaultFeedsV', 1);
+    await DB.setMeta('defaultFeedsV', 2);
     return n;
   }
 
@@ -516,8 +557,19 @@
     const summary = { feeds: 0, ok: 0, failed: 0, added: 0, updated: 0, errors: [], origin: (opts && opts.origin) || 'manual' };
     const status = {};
 
+    const direct = new Set((opts && opts.direct) || []);
+    const PROXY_MSG = 'CORS proxy required for direct browser RSS fetch — seed and manual import active';
+    summary.skipped = 0;
+
     for (const f of feeds) {
       if (f.enabled === false) continue;
+      const blockedByCors = !!f.needsProxy && !settings.corsProxy;
+      if (blockedByCors && !direct.has(f.id)) {
+        // Not requested at all: no network call, no console error. Shown as an info chip in Sources & Import.
+        summary.skipped++;
+        status[f.id] = { lastTry: Date.now(), lastStatus: 'Waiting for CORS proxy', lastInfo: PROXY_MSG, lastError: null };
+        continue;
+      }
       summary.feeds++;
       try {
         const text = await fetchText(f.url, settings.corsProxy);
@@ -537,14 +589,22 @@
         });
         const res = await DB.upsertContent(recs);
         summary.ok++; summary.added += res.added; summary.updated += res.updated;
-        status[f.id] = { lastSync: Date.now(), lastStatus: 'OK · ' + recs.length + ' matching items (' + res.added + ' new)', lastError: null };
+        status[f.id] = { lastSync: Date.now(), lastStatus: 'OK · ' + recs.length + ' matching items (' + res.added + ' new)', lastError: null, lastInfo: null };
+        // A direct fetch that worked means the source allows browser access: stop holding it back.
+        if (f.needsProxy && !settings.corsProxy) status[f.id].needsProxy = false;
       } catch (err) {
-        summary.failed++; summary.errors.push((f.name || f.url) + ': ' + err.message);
-        status[f.id] = { lastTry: Date.now(), lastStatus: 'Failed', lastError: err.message };
+        if (blockedByCors) {
+          // Explicit "Try direct fetch" was blocked: expected, reported as information rather than an error.
+          summary.skipped++; summary.feeds--;
+          status[f.id] = { lastTry: Date.now(), lastStatus: 'Direct fetch blocked', lastInfo: PROXY_MSG, lastError: null };
+        } else {
+          summary.failed++; summary.errors.push((f.name || f.url) + ': ' + err.message);
+          status[f.id] = { lastTry: Date.now(), lastStatus: 'Failed', lastError: err.message, lastInfo: null };
+        }
       }
     }
 
-    if (summary.feeds) {
+    if (Object.keys(status).length) {
       const latest = await DB.getMeta('feeds', []);
       latest.forEach((f) => { if (status[f.id]) Object.assign(f, status[f.id]); });
       await DB.setMeta('feeds', latest);
@@ -557,7 +617,7 @@
     summary.pruned = pruned;
     summary.message = summary.feeds
       ? 'Synced ' + summary.ok + '/' + summary.feeds + ' feeds · ' + summary.added + ' new · ' + summary.updated + ' updated'
-      : 'Local archive verified · no custom feeds configured';
+      : (summary.skipped ? 'Local archive verified · ' + summary.skipped + ' live feed(s) waiting for a CORS proxy' : 'Local archive verified · no custom feeds configured');
     await DB.log(
       summary.origin === 'manual' ? 'sync' : summary.origin,
       summary.message + (pruned ? ' · retention removed ' + pruned.removedArticles + ' article(s)' : ''),
@@ -569,7 +629,7 @@
 
   root.WTP_FEEDS = {
     COMPONENTS, CATEGORIES, SEVERITIES, SEED_VERSION,
-    seedRecords, ensureSeed, ensureDefaultFeeds, DEFAULT_FEEDS, removeSeed,
+    SEED_PLAN, seedRecords, ensureSeed, ensureDefaultFeeds, DEFAULT_FEEDS, removeSeed,
     classify, parseFeedXml, importText, hash,
     fetchText, addFeed, testFeed, syncAll
   };

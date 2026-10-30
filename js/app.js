@@ -102,7 +102,7 @@
     let h = S.hay.get(it.id);
     if (!h) {
       h = [it.title, it.summary, it.body, it.component, it.category, it.severity, it.kb, it.cveId, it.fixedIn, it.source,
-        it.releaseType, (it.versions || []).join(' '), (it.tags || []).join(' '), st(it.id).note || '', st(it.id).site || '', st(it.id).targetNode || ''].join(' ').toLowerCase();
+        it.releaseType, (it.versions || []).join(' '), (it.tags || []).join(' '), st(it.id).note || '', pf(it, 'site'), pf(it, 'targetNode')].join(' ').toLowerCase();
       S.hay.set(it.id, h);
     }
     return h;
@@ -118,7 +118,7 @@
       if (f.component && it.component !== f.component) return false;
       if (f.category && it.category !== f.category) return false;
       if (f.severity && it.severity !== f.severity) return false;
-      if (f.site && (st(it.id).site || '') !== f.site) return false;
+      if (f.site && pf(it, 'site') !== f.site) return false;
       const read = !!st(it.id).read;
       if (f.status === 'unread' && read) return false;
       if (f.status === 'read' && !read) return false;
@@ -165,25 +165,41 @@
   function cvssClass(v) { return v >= 9 ? 'c' : v >= 7 ? 'h' : v >= 4 ? 'm' : 'l'; }
   function starBtn(it) {
     const on = !!st(it.id).bookmarked;
-    return '<button class="btn act" data-action="toggle-bm" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Remove from shutdown plan' : 'Add to shutdown plan') + '"><svg class="i"><use href="#i-star"/></svg>' + (on ? 'In plan' : '+ Plan') + '</button>';
+    // The accessible name states the action and the item; the on/off look is a CSS class (no aria-pressed, which
+    // would contradict a label that already flips between "Add…" and "Remove…").
+    const label = on ? 'In plan: remove ' + it.title + ' from shutdown plan' : '+ Plan: add ' + it.title + ' to shutdown plan';
+    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-bm" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg>' + (on ? 'In plan' : '+ Plan') + '</button>';
   }
   function readBtn(it) {
     const on = !!st(it.id).read;
-    return '<button class="btn act" data-action="toggle-read" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Mark as unreviewed' : 'Mark as reviewed') + '"><svg class="i"><use href="#i-check"/></svg>' + (on ? 'Reviewed' : 'Review') + '</button>';
+    const label = on ? 'Reviewed: mark ' + it.title + ' as unreviewed' : 'Review: mark ' + it.title + ' as reviewed';
+    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-read" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>' + (on ? 'Reviewed' : 'Review') + '</button>';
   }
-  const REBOOT = { yes: ['Reboot required', 'pill-bad'], service: ['Service restart', 'pill-warn'], no: ['No reboot', 'pill-ok'] };
+  // Planning fields: the engineer's own value (stored per record in IndexedDB) wins over the record's built-in value,
+  // including an explicit blank, so a seed value can always be cleared.
+  function pf(it, key) { const v = st(it.id)[key]; return v !== undefined && v !== null ? v : (it[key] || ''); }
+  const REBOOT = { yes: ['Reboot: Yes', 'rb rb-yes'], service: ['Service only', 'rb rb-service'], no: ['Reboot: No', 'rb rb-no'] };
   const ROLLBACK = { low: ['Low', 'pill-ok'], moderate: ['Moderate', 'pill-warn'], high: ['High', 'pill-bad'] };
-  const rebootOf = (it) => st(it.id).reboot || it.reboot || '';
-  const rollbackOf = (it) => st(it.id).rollback || it.rollback || '';
+  const rebootOf = (it) => pf(it, 'reboot');
+  const rollbackOf = (it) => pf(it, 'rollback');
   function pill(map, key) { return key && map[key] ? '<span class="' + map[key][1] + '">' + map[key][0] + '</span>' : '<span class="muted">—</span>'; }
+  function rebootPill(it) {
+    const k = rebootOf(it);
+    if (!REBOOT[k]) return '<span class="muted">—</span>';
+    const note = pf(it, 'rebootNote');
+    return '<span class="' + REBOOT[k][1] + '"' + (note ? ' title="' + esc(note) + '"' : '') + '>' + REBOOT[k][0] + '</span>';
+  }
+  function sitePill(it) { const v = pf(it, 'site'); return v ? '<span class="sitepill">' + esc(v) + '</span>' : '<span class="muted">—</span>'; }
+  // Rows are keyboard-operable: Tab to the row, Enter / Space opens the drawer.
+  function rowAttrs(it) { return ' data-action="open" data-id="' + esc(it.id) + '" tabindex="0" aria-label="' + esc('Open details: ' + it.title) + '"'; }
 
   function listHtml(list) {
-    return '<div class="table-wrap"><table class="list-table"><thead><tr><th>Sev</th><th>Title</th><th>Component</th><th>Category</th><th>Reboot</th><th>Site</th><th>Date</th><th></th></tr></thead><tbody>' +
-      list.map((it) => '<tr class="' + (st(it.id).read ? '' : 'unread') + '" data-action="open" data-id="' + esc(it.id) + '">' +
+    return '<div class="table-wrap"><table class="list-table"><thead><tr><th scope="col">Sev</th><th scope="col" class="ttl-col">Title</th><th scope="col">Component</th><th scope="col">Category</th><th scope="col">Reboot</th><th scope="col">Site</th><th scope="col">Date</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      list.map((it) => '<tr class="' + (st(it.id).read ? '' : 'unread') + '"' + rowAttrs(it) + '>' +
         '<td>' + sevBadge(it.severity) + '</td>' +
-        '<td class="ttl">' + esc(it.title) + (it.seed ? ' ' + badge('seed', 'SEED') : '') + '</td>' +
+        '<td class="ttl" title="' + esc(it.title) + '"><span class="ttl-text">' + esc(it.title) + '</span>' + (it.seed ? ' ' + badge('seed', 'SEED') : '') + '</td>' +
         '<td>' + esc(it.component) + '</td><td class="small">' + esc(it.category) + '</td>' +
-        '<td class="small">' + pill(REBOOT, rebootOf(it)) + '</td><td class="small">' + esc(st(it.id).site || '—') + '</td>' +
+        '<td class="small">' + rebootPill(it) + '</td><td class="small">' + sitePill(it) + '</td>' +
         '<td class="small" style="white-space:nowrap">' + fmtDate(it.timestamp) + '</td>' +
         '<td><span class="act-row">' + readBtn(it) + starBtn(it) + '</span></td></tr>').join('') + '</tbody></table></div>';
   }
@@ -209,8 +225,8 @@
     return '<div class="stats">' +
       '<div class="stat red"><div class="n">' + unreviewedCritical() + '</div><div class="l">Unreviewed critical</div></div>' +
       '<div class="stat amber"><div class="n">' + flagged + '</div><div class="l">Flagged for shutdown</div></div>' +
-      '<div class="stat cyan"><div class="n">' + unread + '</div><div class="l">Unreviewed total</div></div>' +
-      '<div class="stat"><div class="n">' + S.items.length + '</div><div class="l">Records offline</div></div>' +
+      '<div class="stat slate"><div class="n">' + unread + '</div><div class="l">Unreviewed total</div></div>' +
+      '<div class="stat cyan"><div class="n">' + S.items.length + '</div><div class="l">Records offline</div></div>' +
       '<div class="stat"><div class="n" style="font-size:16px;padding-top:6px">' + esc(ago(S.lastSync)) + '</div><div class="l">Last sync</div></div>' +
       '</div>';
   }
@@ -238,15 +254,15 @@
       if (!rows.length) return;
       html += '<h2 class="group-title">' + esc(comp) + badge('', rows.length + (rows.length === 1 ? ' release' : ' releases')) + '</h2>' +
         '<div class="table-wrap"><table><thead><tr><th>Release / hotfix</th><th>Type</th><th>Impacted versions</th><th>Fixed in</th><th>KB / tech note</th><th>Severity</th><th>Reboot</th><th>Rollback</th><th>Site</th><th>Date</th><th></th></tr></thead><tbody>' +
-        rows.map((p) => '<tr data-action="open" data-id="' + esc(p.id) + '">' +
+        rows.map((p) => '<tr' + rowAttrs(p) + '>' +
           '<td><strong>' + esc(p.title) + '</strong>' + (p.seed ? ' ' + badge('seed', 'SEED') : '') + (st(p.id).read ? '' : ' <span class="warn" title="Unreviewed">●</span>') + '</td>' +
           '<td>' + esc(p.releaseType || p.category) + '</td>' +
           '<td>' + versionChips(p.versions, 4) + '</td>' +
           '<td>' + esc(p.fixedIn || '—') + '</td>' +
           '<td class="mono small">' + esc(p.kb || '—') + '</td>' +
           '<td>' + sevBadge(p.severity) + '</td>' +
-          '<td class="small">' + pill(REBOOT, rebootOf(p)) + '</td><td class="small">' + pill(ROLLBACK, rollbackOf(p)) + '</td>' +
-          '<td class="small">' + esc(st(p.id).site || '—') + '</td>' +
+          '<td class="small">' + rebootPill(p) + '</td><td class="small">' + pill(ROLLBACK, rollbackOf(p)) + '</td>' +
+          '<td class="small">' + sitePill(p) + '</td>' +
           '<td class="small">' + fmtDate(p.timestamp) + '</td>' +
           '<td><span class="act-row">' + starBtn(p) + '</span></td></tr>').join('') +
         '</tbody></table></div>';
@@ -263,13 +279,13 @@
       '<div class="table-wrap"><table><thead><tr><th>CVE ID</th><th>Advisory</th><th>Component</th><th>CVSS</th><th>Remediation status</th><th>Site</th><th>Published</th><th></th></tr></thead><tbody>' +
       list.map((a) => {
         const rem = st(a.id).remediation || a.remediation || 'open';
-        return '<tr data-action="open" data-id="' + esc(a.id) + '">' +
+        return '<tr' + rowAttrs(a) + '>' +
           '<td class="mono small">' + esc(a.cveId || a.id) + (a.seed ? '<br>' + badge('seed', 'SEED') : '') + '</td>' +
           '<td><strong>' + esc(a.title) + '</strong><div class="muted small">' + esc((a.summary || '').slice(0, 130)) + (a.summary && a.summary.length > 130 ? '…' : '') + '</div></td>' +
           '<td>' + badge('comp', a.component) + '</td>' +
           '<td>' + (a.cvss != null ? '<span class="cvss ' + cvssClass(a.cvss) + '">' + Number(a.cvss).toFixed(1) + '</span>' : '—') + '</td>' +
           '<td>' + remediationSelect(a.id, rem) + '</td>' +
-          '<td class="small">' + esc(st(a.id).site || '—') + '</td>' +
+          '<td class="small">' + sitePill(a) + '</td>' +
           '<td class="small">' + fmtDate(a.timestamp) + '</td>' +
           '<td><span class="act-row">' + starBtn(a) + '</span></td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -296,7 +312,7 @@
     const feedRows = S.feeds.length ? S.feeds.map((f) =>
       '<tr style="cursor:default"><td><strong>' + esc(f.name) + '</strong><div class="muted small mono" style="word-break:break-all">' + esc(f.url) + '</div>' + (f.filter ? '<div class="muted small">Filter: ' + esc(f.filter) + '</div>' : '') + '</td>' +
       '<td>' + esc(f.component || 'Auto') + '</td>' +
-      '<td class="small">' + (f.lastError ? '<span class="bad">' + esc(f.lastStatus) + ' — ' + esc(f.lastError) + '</span>' : esc(f.lastStatus || '—')) + '<div class="muted">' + esc(ago(f.lastSync || f.lastTry)) + '</div></td>' +
+      '<td class="small">' + (f.lastError ? '<span class="bad">' + esc(f.lastStatus) + ' — ' + esc(f.lastError) + '</span>' : (f.lastInfo ? '<span class="infochip">ⓘ ' + esc(f.lastInfo) + '</span>' : esc(f.lastStatus || '—'))) + (f.needsProxy ? '<div style="margin-top:6px"><button class="btn" data-action="try-direct" data-id="' + esc(f.id) + '">Try direct fetch</button></div>' : '') + '<div class="muted">' + esc(ago(f.lastSync || f.lastTry)) + '</div></td>' +
       '<td><label class="row" style="gap:6px"><input type="checkbox" data-feed-toggle="' + esc(f.id) + '"' + (f.enabled === false ? '' : ' checked') + '> on</label></td>' +
       '<td><button class="btn btn-danger" data-action="delete-feed" data-id="' + esc(f.id) + '">Remove</button></td></tr>').join('') :
       '<tr style="cursor:default"><td colspan="5" class="muted">No custom feeds yet. Add an RSS, Atom or JSON Feed URL, or import a file below.</td></tr>';
@@ -426,7 +442,7 @@
 
   function syncFilterControls() {
     const siteSel = $('[data-filter="site"]');
-    const sites = Array.from(new Set(Object.values(S.states).map((x) => x.site).filter(Boolean))).sort();
+    const sites = Array.from(new Set(S.items.map((i) => pf(i, 'site')).filter(Boolean))).sort();
     if (S.f.site && sites.indexOf(S.f.site) === -1) S.f.site = '';
     siteSel.innerHTML = '<option value="">All sites</option>' + sites.map((x) => '<option>' + esc(x) + '</option>').join('');
     $$('[data-filter]').forEach((sel) => { sel.value = S.f[sel.dataset.filter]; });
@@ -484,10 +500,10 @@
       '<div class="plan-grid">' +
       '<label class="field">Reboot required?<select data-plan="' + esc(id) + '" data-field="reboot"><option value="">Not set</option>' + Object.keys(REBOOT).map((k) => '<option value="' + k + '"' + (rebootOf(it) === k ? ' selected' : '') + '>' + REBOOT[k][0] + '</option>').join('') + '</select></label>' +
       '<label class="field">Rollback complexity<select data-plan="' + esc(id) + '" data-field="rollback"><option value="">Not set</option>' + Object.keys(ROLLBACK).map((k) => '<option value="' + k + '"' + (rollbackOf(it) === k ? ' selected' : '') + '>' + ROLLBACK[k][0] + '</option>').join('') + '</select></label>' +
-      '<label class="field">Client site / galaxy<input type="text" list="siteList" data-plan="' + esc(id) + '" data-field="site" maxlength="80" placeholder="Site A - InTouch 2020 R2" value="' + esc(s.site || '') + '"></label>' +
-      '<label class="field">Target node<input type="text" data-plan="' + esc(id) + '" data-field="targetNode" maxlength="80" placeholder="GR-NODE01" value="' + esc(s.targetNode || '') + '"></label>' +
-      '<label class="field wide">Expected downtime<input type="text" data-plan="' + esc(id) + '" data-field="downtime" maxlength="40" placeholder="e.g. 45 min" value="' + esc(s.downtime || '') + '"></label>' +
-      '<datalist id="siteList">' + Array.from(new Set(Object.values(S.states).map((x) => x.site).filter(Boolean))).map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist>' +
+      '<label class="field">Client site / galaxy<input type="text" list="siteList" data-plan="' + esc(id) + '" data-field="site" maxlength="80" placeholder="Site A - InTouch 2020 R2" value="' + esc(pf(it, 'site')) + '"></label>' +
+      '<label class="field">Target node<input type="text" data-plan="' + esc(id) + '" data-field="targetNode" maxlength="80" placeholder="GR-NODE01" value="' + esc(pf(it, 'targetNode')) + '"></label>' +
+      '<label class="field wide">Expected downtime<input type="text" data-plan="' + esc(id) + '" data-field="downtime" maxlength="40" placeholder="e.g. 45 min" value="' + esc(pf(it, 'downtime')) + '"></label>' +
+      '<datalist id="siteList">' + Array.from(new Set(S.items.map((i) => pf(i, 'site')).filter(Boolean))).map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist>' +
       '</div>' +
       (it.kind === 'patch' ? '<div class="hash-box"><h3>Verify downloaded file (SHA-256)</h3>' +
         '<label class="field">Expected SHA-256 (from the vendor download page)<input type="text" class="mono" id="hashExpected" data-plan="' + esc(id) + '" data-field="checksum" placeholder="64 hex characters" value="' + esc(s.checksum || it.checksum || '') + '"></label>' +
@@ -722,10 +738,11 @@
   function planRow(it) {
     const s = st(it.id);
     return {
-      component: it.component, site: s.site || '', node: s.targetNode || '', name: it.title,
+      component: it.component, site: pf(it, 'site'), node: pf(it, 'targetNode'), name: it.title,
       kb: it.kb || it.cveId || '', versions: (it.versions || []).join('; '), severity: SEV_LABEL[it.severity] || it.severity,
-      reboot: REBOOT_TXT[rebootOf(it)] || '', rollback: ROLLBACK_TXT[rollbackOf(it)] || '',
-      downtime: s.downtime || '', fixedIn: it.fixedIn || '', checksum: s.checksum || it.checksum || '', note: (s.note || '').trim(), seed: !!it.seed
+      reboot: (REBOOT_TXT[rebootOf(it)] || '') + (REBOOT_TXT[rebootOf(it)] && pf(it, 'rebootNote') && rebootOf(it) === 'yes' ? ' (' + pf(it, 'rebootNote').toLowerCase() + ')' : ''),
+      rollback: ROLLBACK_TXT[rollbackOf(it)] || '',
+      downtime: pf(it, 'downtime'), fixedIn: it.fixedIn || '', checksum: s.checksum || it.checksum || '', note: (s.note || '').trim(), seed: !!it.seed
     };
   }
 
@@ -961,6 +978,14 @@
       if (!ok) toast((await copyText(text)) ? 'Sharing unavailable — item copied to clipboard' : 'Could not share or copy', 'warn');
     },
     'add-feed': () => openFeedDialog(),
+    'try-direct': async (el) => {
+      if (!navigator.onLine) { toast('Offline — try again when you are connected', 'warn'); return; }
+      el.disabled = true;
+      try {
+        const r = await FEEDS.syncAll({ origin: 'manual', direct: [el.dataset.id] });
+        toast(r.feeds ? r.message : 'Direct fetch blocked by the browser — a CORS proxy is required', r.feeds ? 'ok' : 'warn');
+      } catch (err) { toast('Sync failed: ' + err.message, 'err'); } finally { await refresh(true); }
+    },
     'delete-feed': async (el) => {
       const f = S.feeds.find((x) => x.id === el.dataset.id);
       if (!f || !confirm('Remove feed "' + f.name + '"? Items already imported are kept.')) return;
@@ -1028,7 +1053,7 @@
 
     document.addEventListener('keydown', (e) => {
       const tag = (e.target.tagName || '').toLowerCase();
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.card[data-action="open"]')) { e.preventDefault(); openDetail(e.target.dataset.id); return; }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.card[data-action="open"], tr[data-action="open"]')) { e.preventDefault(); openDetail(e.target.dataset.id); return; }
       if (e.key === '/' && tag !== 'input' && tag !== 'textarea' && tag !== 'select') { e.preventDefault(); $('#q').focus(); $('#q').select(); }
     });
 
@@ -1058,7 +1083,13 @@
 
     $('#feedForm').addEventListener('submit', submitFeed);
     $$('dialog').forEach((d) => d.addEventListener('click', (e) => { if (e.target === d) d.close(); }));
-    $('#detail').addEventListener('close', () => { S.dialogItemId = null; });
+    $('#detail').addEventListener('close', () => {
+      const id = S.dialogItemId;
+      S.dialogItemId = null;
+      if (!id) return;
+      const el = document.querySelector('[data-action="open"][data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (el) el.focus({ preventScroll: true });
+    });
     window.addEventListener('hashchange', () => { const v = readHash(); if (v) setView(v); });
   }
 

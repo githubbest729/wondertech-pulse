@@ -348,3 +348,90 @@ dialog#detail .dlg-body { max-height: 100dvh; height: 100%; padding-bottom: calc
 .hash-box h3 { font-size: 13px; margin-bottom: 8px; }
 .hash-result { font: 600 12px var(--mono); word-break: break-all; margin-top: 8px; }
 @media (max-width: 560px) { .plan-grid { grid-template-columns: 1fr; } }
+
+/* ======================================================================
+   v1.2 — control-room polish, WCAG 2.2 AA fixes
+   ====================================================================== */
+:root { --muted: #A3AEBF; --ctl-border: #667286; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Form-control boundaries must reach 3:1 against their background (WCAG 1.4.11). */
+select, input[type="text"], input[type="url"], input[type="number"], input[type="search"], input[type="file"], textarea,
+.tb-search input { border-color: var(--ctl-border); }
+
+/* Focus: unmistakable 2px cyan ring on everything interactive (WCAG 2.4.7 / 2.4.11). */
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible,
+summary:focus-visible, [tabindex="0"]:focus-visible, .tb-search input:focus-visible {
+  outline: 2px solid #0EA5E9; outline-offset: 2px;
+}
+tr[tabindex="0"]:focus-visible { outline-offset: -2px; background: rgba(14, 165, 233, .10); }
+
+/* Tables: soft borders, gentle striping, hover highlight, clean truncation. */
+th, td { border-bottom-color: rgba(255, 255, 255, .06); }
+tbody tr:nth-child(even) { background: rgba(255, 255, 255, .018); }
+tbody tr:hover { background: rgba(14, 165, 233, .07); }
+.list-table { table-layout: fixed; min-width: 1020px; }
+.list-table th:nth-child(1) { width: 96px; }
+.list-table th:nth-child(3) { width: 128px; }
+.list-table th:nth-child(4) { width: 150px; }
+.list-table th:nth-child(5) { width: 112px; }
+.list-table th:nth-child(6) { width: 170px; }
+.list-table th:nth-child(7) { width: 104px; }
+.list-table th:nth-child(8) { width: 196px; }
+.list-table td { overflow: hidden; vertical-align: middle; }
+.list-table td.ttl { text-overflow: ellipsis; white-space: nowrap; }
+.list-table .ttl-text { display: inline-block; max-width: calc(100% - 62px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.list-table td.small { white-space: nowrap; text-overflow: ellipsis; }
+
+/* Reboot + site indicators. "No" keeps the muted slate as its border/dot; its text is lighter so it stays readable. */
+.rb { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; border: 1px solid; white-space: nowrap; }
+.rb-yes { color: #F59E0B; background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .5); }
+.rb-no { color: #CBD5E1; background: rgba(100, 116, 139, .16); border-color: #64748B; }
+.rb-service { color: #38BDF8; background: rgba(14, 165, 233, .12); border-color: #0EA5E9; }
+.sitepill { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+  padding: 1px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #E2E8F0; background: rgba(148, 163, 184, .16); border: 1px solid rgba(148, 163, 184, .35); }
+.infochip { display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; color: #BAE6FD; background: rgba(14, 165, 233, .12); border: 1px solid rgba(14, 165, 233, .4); }
+
+/* KPI strip: one connected header band with a status accent on each tile. */
+.stats { gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.stat { border: 0; border-top: 3px solid #64748B; border-right: 1px solid rgba(255, 255, 255, .06); border-radius: 0; background: linear-gradient(180deg, rgba(255, 255, 255, .035), transparent); }
+.stat:last-child { border-right: 0; }
+.stat.red { border-top-color: var(--red); }
+.stat.amber { border-top-color: var(--amber); }
+.stat.cyan { border-top-color: var(--cyan); }
+.stat.slate { border-top-color: #64748B; }
+.stat.slate .n { color: var(--text); }
+.stat:not(.red):not(.amber):not(.cyan):not(.slate) { border-top-color: rgba(255, 255, 255, .18); }
+
+/* Action chips: state is a class (the accessible name already flips between "Add…" and "Remove…"). */
+.act.on[data-action="toggle-bm"] { background: rgba(245, 158, 11, .18); border-color: var(--amber); color: var(--amber); }
+.act.on[data-action="toggle-bm"] svg { fill: currentColor; }
+.act.on[data-action="toggle-read"] { background: rgba(34, 197, 94, .14); border-color: rgba(34, 197, 94, .7); color: #86EFAC; }
+.act:not(.on)[data-action="toggle-bm"] { color: #FCD34D; }
+.act:not(.on)[data-action="toggle-read"] { color: var(--text); }
+
+/* Gloved / tablet operation: 44px touch targets (WCAG 2.5.5 AAA, comfortably above 2.5.8 AA). */
+@media (max-width: 768px), (pointer: coarse) {
+  .act, .btn, .seg .btn { min-height: 44px; }
+  .act { padding: 0 14px; }
+  .icon-btn { width: 44px; height: 44px; }
+  select, input[type="text"], input[type="url"], input[type="number"], input[type="search"], input[type="file"] { min-height: 44px; }
+  .nav a { min-height: 44px; }
+  .list-table td, .list-table th, tbody td { padding: 10px 12px; }
+}
+@media (prefers-contrast: more) { :root { --muted: #CBD5E1; --ctl-border: #94A3B8; } }
+
+/* Red as TEXT needs a lighter tint than the brand red to reach 4.5:1 on the dark panels. */
+.bad, .btn-danger, .cvss.c, .pill-bad { color: #F87171; }
+.btn-danger { border-color: rgba(248, 113, 113, .6); }
+
+/* Title needs room to be useful: below 1700px the Category column folds away (it is repeated in the drawer and cards). */
+.list-table { min-width: 900px; }
+.list-table th:nth-child(1) { width: 92px; }
+.list-table th:nth-child(3) { width: 124px; }
+.list-table th:nth-child(4) { width: 150px; }
+.list-table th:nth-child(5) { width: 112px; }
+.list-table th:nth-child(6) { width: 160px; }
+.list-table th:nth-child(7) { width: 100px; }
+.list-table th:nth-child(8) { width: 190px; }
+@media (max-width: 1699px) { .list-table th:nth-child(4), .list-table td:nth-child(4) { display: none; } }

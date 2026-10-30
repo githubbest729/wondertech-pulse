@@ -8,6 +8,15 @@ Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.)
 
 ---
 
+## What's new in v1.2
+
+- **Table polish:** soft row borders, subtle striping and a cyan hover highlight, titles truncated with an ellipsis (full title on hover and in the drawer). Below 1700 px wide the Category column folds away to give the title room.
+- **Reboot / site indicators:** `Reboot: Yes` (amber), `Reboot: No` (muted), `Service only` (sky blue) and grey site pills. KPI tiles are one connected header strip with red / amber / cyan top accents.
+- **Accessibility (WCAG 2.2 AA):** muted text raised to `#A3AEBF`, red text tint `#F87171`, 2 px cyan focus rings, form-control borders at 3:1 or better, row keyboard support (Tab to a row, Enter / Space opens the drawer, Escape closes it and returns focus to the row), dialogs with `role="dialog"` / `aria-modal`, action chips whose accessible name begins with their visible label and names the item (for example *"Review: mark … as reviewed"*), and 44 px touch targets on tablets and touch screens. An automated axe-core scan of Feed, Matrix, CISA, Critical, Sources and the open drawer reports 0 violations; contrast of overlays, print and high-contrast modes was not audited.
+- **Seed planning data:** every seed record now has site, target node, reboot, downtime and rollback values (for example System Platform rollup → `DWTC DCP`, `GR-NODE-01`, reboot yes, 45 mins). These are **illustrative planning assumptions, not vendor statements**: the vendor KB decides whether a restart is required. Your own edits in the drawer always win and are never overwritten. Existing installs are upgraded in place (dates kept, deleted seed records stay deleted).
+- **CISA feed handling:** the pre-configured feed is held back until a CORS proxy is set, so the browser never makes the doomed request and the console stays clean. Sources & Import shows an info chip (*"CORS proxy required for direct browser RSS fetch — seed and manual import active"*) and a **Try direct fetch** button; if the source does allow browser access, the hold is lifted automatically.
+- The list / cards preference is stored in IndexedDB settings and restored on every launch.
+
 ## 1. Run it
 
 A service worker needs **HTTPS** or `http://localhost`; opening `index.html` by double-click (`file://`) shows the UI but disables offline install features.

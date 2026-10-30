@@ -120,10 +120,10 @@
 </div>
 
 <!-- Detail dialog -->
-<dialog id="detail" aria-labelledby="detailTitle"><div class="dlg-body" id="detailBody"></div></dialog>
+<dialog id="detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle"><div class="dlg-body" id="detailBody"></div></dialog>
 
 <!-- Export dialog -->
-<dialog id="exportDlg" aria-labelledby="exportTitle">
+<dialog id="exportDlg" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
   <div class="dlg-body">
     <div class="dlg-head"><h2 id="exportTitle">Export report</h2><button class="icon-btn" data-action="close-dialog" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
     <p class="muted">Generate an offline report for a maintenance shutdown meeting.</p>
@@ -149,7 +149,7 @@
 </dialog>
 
 <!-- Add feed dialog -->
-<dialog id="feedDlg" aria-labelledby="feedTitle">
+<dialog id="feedDlg" role="dialog" aria-modal="true" aria-labelledby="feedTitle">
   <form class="dlg-body" id="feedForm" autocomplete="off">
     <div class="dlg-head"><h2 id="feedTitle">Add custom RSS / Atom / JSON feed</h2><button type="button" class="icon-btn" data-action="close-dialog" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button></div>
     <label class="field">Feed name
