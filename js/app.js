@@ -296,16 +296,57 @@
       REMEDIATION.map(([v, l]) => '<option value="' + v + '"' + (v === current ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
   }
 
+  const EMPTY_PLAN_SVG = '<svg class="empty-art" viewBox="0 0 120 120" width="112" height="112" aria-hidden="true" focusable="false">' +
+    '<rect x="22" y="18" width="76" height="92" rx="8" fill="none" stroke="currentColor" stroke-width="3" opacity=".75"/>' +
+    '<rect x="44" y="9" width="32" height="18" rx="5" fill="#1F242D" stroke="#F59E0B" stroke-width="3"/>' +
+    '<path d="M34 46h52M34 58h52M34 70h30" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".45"/>' +
+    '<g transform="translate(62 72)"><rect width="46" height="40" rx="6" fill="#12151A" stroke="#0EA5E9" stroke-width="3"/>' +
+    '<path d="M0 12h46" stroke="#0EA5E9" stroke-width="3"/><path d="M11 0v8M35 0v8" stroke="#0EA5E9" stroke-width="3" stroke-linecap="round"/>' +
+    '<path d="M10 22h6M20 22h6M30 22h6M10 31h6M20 31h6" stroke="#F59E0B" stroke-width="3" stroke-linecap="round"/></g></svg>';
+
+  function emptyPlanHtml(filteredOut) {
+    if (filteredOut) {
+      return '<div class="empty-state" role="status"><h2>No flagged items match your search</h2>' +
+        '<p>Clear the search box (top bar) to see everything you have queued for the shutdown window.</p>' +
+        '<button class="btn btn-accent" data-action="clear-search">Clear search</button></div>';
+    }
+    return '<div class="empty-state">' + EMPTY_PLAN_SVG +
+      '<h2>No Maintenance Items Flagged</h2>' +
+      '<p>Mark patches or advisories using the \'+ Plan\' button to queue them for your next plant shutdown window.</p>' +
+      '<button class="btn btn-accent" data-action="goto-critical"><svg class="i" aria-hidden="true"><use href="#i-alert"/></svg>Explore Critical Advisories</button></div>';
+  }
+
   function renderFlagged(list) {
-    const head = viewHead('Shutdown Plan — Flagged Items',
-      '<button class="btn btn-accent" data-action="open-export"><svg class="i"><use href="#i-share"/></svg><span class="btn-label">Export shutdown report</span></button>');
-    const intro = '<p class="muted" style="margin:0 0 12px">Items you flagged for the next maintenance shutdown. Flagged items and their notes are never removed by the retention policy.</p>';
-    if (!list.length) return head + intro + emptyHtml('Nothing flagged yet. Use the ★ on any card or table row to add it to the shutdown plan.');
-    if (S.settings.layout === 'list') return head + intro + listHtml(list);
-    return head + intro + '<div class="cards">' + list.map((it) => {
-      const note = st(it.id).note;
-      return cardHtml(it).replace('</article>', (note ? '<div class="small" style="border-top:1px solid var(--line);padding-top:6px"><span class="muted">Note:</span> ' + esc(note.slice(0, 240)) + '</div>' : '') + '</article>');
-    }).join('') + '</div>';
+    const total = S.items.filter((i) => st(i.id).bookmarked).length;
+    // No blank exports: the button only exists once at least one item is flagged.
+    const head = viewHead('Shutdown Plan — Flagged Items', total
+      ? '<button class="btn btn-accent" data-action="open-export"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export shutdown report</span></button>' : '');
+    if (!total) return head + emptyPlanHtml(false);
+    const intro = '<p class="muted" style="margin:0 0 12px">' + total + ' item' + (total === 1 ? '' : 's') + ' queued for the next maintenance shutdown. Flagged items and their notes are never removed by the retention policy.</p>';
+    if (!list.length) return head + intro + emptyPlanHtml(true);
+    const rows = list.map((it) => {
+      const note = (st(it.id).note || '').trim();
+      const t = esc(it.title);
+      return '<tr' + rowAttrs(it) + '>' +
+        '<td class="mono">' + (pf(it, 'targetNode') ? esc(pf(it, 'targetNode')) : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + esc(it.component) + '</td>' +
+        '<td><strong>' + t + '</strong>' + (it.seed ? ' ' + badge('seed', 'SEED') : '') +
+          (note ? '<div class="wo-note small muted" title="' + esc(note) + '">Note: ' + esc(note.slice(0, 120)) + (note.length > 120 ? '…' : '') + '</div>' : '') + '</td>' +
+        '<td>' + sevBadge(it.severity) + '</td>' +
+        '<td>' + rebootPill(it) + '</td>' +
+        '<td>' + (pf(it, 'downtime') ? esc(pf(it, 'downtime')) : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + sitePill(it) + '</td>' +
+        '<td><span class="act-row">' +
+          '<button class="btn act" data-action="open-notes" data-id="' + esc(it.id) + '" aria-label="' + esc('Notes: edit notes for ' + it.title) + '">' +
+            '<svg class="i" aria-hidden="true"><use href="#i-file"/></svg>Notes</button>' +
+          '<button class="btn act btn-remove" data-action="unflag" data-id="' + esc(it.id) + '" aria-label="' + esc('Remove: take ' + it.title + ' off the shutdown plan') + '">' +
+            '<svg class="i" aria-hidden="true"><use href="#i-x"/></svg>Remove</button>' +
+        '</span></td></tr>';
+    }).join('');
+    return head + intro + '<div class="table-wrap"><table class="wo-table"><caption class="sr-only">Shutdown work orders</caption><thead><tr>' +
+      '<th scope="col">Target Node</th><th scope="col">Component</th><th scope="col">Patch / Advisory</th><th scope="col">Severity</th>' +
+      '<th scope="col">Reboot Required</th><th scope="col">Est. Downtime</th><th scope="col">Assigned Site</th><th scope="col">Actions</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
   function renderSources() {
@@ -799,6 +840,7 @@
     const scope = ($('input[name="exScope"]:checked') || {}).value || 'flagged';
     const { items, label } = currentScopeItems(scope);
     $('#exportInfo').textContent = label + ' — ' + items.length + ' item' + (items.length === 1 ? '' : 's') + (scope === 'flagged' && !items.length ? ' (flag items with ★ first)' : '');
+    $$('#exportDlg .dlg-actions button').forEach((b) => { b.disabled = !items.length; });
   }
 
   function downloadBlob(text, name, mime) {
@@ -978,6 +1020,17 @@
       if (!ok) toast((await copyText(text)) ? 'Sharing unavailable — item copied to clipboard' : 'Could not share or copy', 'warn');
     },
     'add-feed': () => openFeedDialog(),
+    'goto-critical': () => { location.hash = '#/critical'; },
+    'clear-search': () => { S.f.q = ''; $('#q').value = ''; render(); },
+    'open-notes': async (el) => { await openDetail(el.dataset.id); const n = $('#detailNote'); if (n) n.focus(); },
+    'unflag': async (el) => {
+      const id = el.dataset.id;
+      await toggleBookmark(id);
+      toast('Removed from shutdown plan', 'ok');
+      // The row (and possibly the whole table) is gone: keep keyboard users oriented.
+      const next = $('#view tbody tr') || $('#view');
+      if (next && next.focus) next.focus({ preventScroll: true });
+    },
     'try-direct': async (el) => {
       if (!navigator.onLine) { toast('Offline — try again when you are connected', 'warn'); return; }
       el.disabled = true;
@@ -1087,6 +1140,7 @@
       const id = S.dialogItemId;
       S.dialogItemId = null;
       if (!id) return;
+      if (S.view === 'flagged') render(); // pick up notes / planning edits made in the drawer
       const el = document.querySelector('[data-action="open"][data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
       if (el) el.focus({ preventScroll: true });
     });

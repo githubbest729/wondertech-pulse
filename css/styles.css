@@ -435,3 +435,29 @@ tbody tr:hover { background: rgba(14, 165, 233, .07); }
 .list-table th:nth-child(7) { width: 100px; }
 .list-table th:nth-child(8) { width: 190px; }
 @media (max-width: 1699px) { .list-table th:nth-child(4), .list-table td:nth-child(4) { display: none; } }
+
+/* ======================================================================
+   v1.3 — Shutdown Plan: illustrated empty state + work-order table
+   ====================================================================== */
+:root { --muted: #A3AEBF; } /* >= #94A3B8 (6.9:1 on #12151A, 5.9:1 on panels) */
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  padding: 44px 20px 48px; border: 1px solid var(--line); border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(14, 165, 233, .07), transparent 62%), var(--panel-2); }
+.empty-state .empty-art { color: #94A3B8; margin-bottom: 4px; }
+.empty-state h2 { font-size: 20px; color: var(--text); }
+.empty-state p { margin: 0 0 8px; max-width: 52ch; color: #94A3B8; font-size: 14px; line-height: 1.6; }
+
+.wo-table { min-width: 1040px; }
+.wo-table td { vertical-align: middle; }
+.wo-table th:nth-child(1) { width: 130px; }
+.wo-table th:nth-child(4) { width: 100px; }
+.wo-table th:nth-child(5) { width: 128px; }
+.wo-table th:nth-child(6) { width: 110px; }
+.wo-table th:nth-child(7) { width: 170px; }
+.wo-table th:nth-child(8) { width: 200px; }
+.wo-note { margin-top: 4px; max-width: 52ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.btn-remove:hover { border-color: #F87171; color: #FCA5A5; }
+
+/* Focus ring on every interactive element and keyboard-focusable row. */
+:focus-visible { outline: 2px solid #0EA5E9; outline-offset: 2px; }
+tr[tabindex="0"]:focus-visible { outline-offset: -2px; }

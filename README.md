@@ -8,6 +8,13 @@ Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.)
 
 ---
 
+## What's new in v1.3
+
+- **Shutdown Plan empty state:** an illustrated clipboard-and-calendar panel, the heading "No Maintenance Items Flagged", helper copy pointing at the `+ Plan` button, and an **Explore Critical Advisories** button that goes to `#/critical`. If you search while items are flagged and nothing matches, a separate "No flagged items match your search" state offers **Clear search**.
+- **No blank exports:** the *Export shutdown report* button only appears once something is flagged, and the Export dialog's Download / Print / Share / Copy buttons are disabled whenever the chosen scope is empty.
+- **Work-order table:** flagged items show as Target Node, Component, Patch / Advisory, Severity, Reboot Required, Est. Downtime, Assigned Site and Actions (**Notes** opens the drawer on the notes box, **Remove** takes the item off the plan and keeps keyboard focus in place). Notes appear under the title. This view is always a table, whatever the Feed layout is set to.
+- **Contrast / focus:** secondary text uses `#A3AEBF` (lighter than the requested `#94A3B8` minimum); `#64748B` is used only for borders and fills. A global `:focus-visible { outline: 2px solid #0EA5E9; outline-offset: 2px }` covers every row, button and input. axe-core reports 0 WCAG 2.2 AA violations on the empty and populated plan views and on the views checked in v1.2.
+
 ## What's new in v1.2
 
 - **Table polish:** soft row borders, subtle striping and a cyan hover highlight, titles truncated with an ellipsis (full title on hover and in the drawer). Below 1700 px wide the Category column folds away to give the title room.
