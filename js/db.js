@@ -32,6 +32,7 @@
     retentionDays: 1095,      // 3 years
     corsProxy: '',
     bannerDismissed: false,
+    layout: 'list',           // 'list' (compact table) | 'cards'
     assumedNewRecordsPerDay: 25
   });
 

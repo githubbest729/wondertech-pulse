@@ -37,8 +37,8 @@
     feed: { title: 'Intelligence Feed', filters: true },
     critical: { title: 'Critical Advisories', filters: true },
     matrix: { title: 'Patch Matrix', filters: true },
-    cisa: { title: 'CISA ICS-CERT & CVE Tracker', filters: true },
-    flagged: { title: 'Shutdown Plan — Flagged Items', filters: true },
+    cisa: { title: 'CISA ICS-CERT & CVE Tracker', filters: true, bar: false },
+    flagged: { title: 'Shutdown Plan — Flagged Items', filters: true, bar: false },
     sources: { title: 'Sources & Import', filters: false },
     storage: { title: 'Storage & Sync', filters: false }
   };
@@ -48,7 +48,7 @@
   const S = {
     items: [], states: {}, feeds: [], settings: {}, lastSync: null,
     view: 'feed', selectedId: null,
-    f: { q: '', component: '', category: '', severity: '', status: 'all', sort: 'date-desc' },
+    f: { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc' },
     hay: new Map(), syncing: false, storage: null, swReady: false, dialogItemId: null
   };
 
@@ -102,19 +102,23 @@
     let h = S.hay.get(it.id);
     if (!h) {
       h = [it.title, it.summary, it.body, it.component, it.category, it.severity, it.kb, it.cveId, it.fixedIn, it.source,
-        it.releaseType, (it.versions || []).join(' '), (it.tags || []).join(' '), st(it.id).note || ''].join(' ').toLowerCase();
+        it.releaseType, (it.versions || []).join(' '), (it.tags || []).join(' '), st(it.id).note || '', st(it.id).site || '', st(it.id).targetNode || ''].join(' ').toLowerCase();
       S.hay.set(it.id, h);
     }
     return h;
   }
 
   function applyFilters(list, view) {
-    const f = S.f;
+    // Views without a visible filter bar must not be affected by dropdown values set elsewhere.
+    const f = (VIEWS[view] && VIEWS[view].bar === false)
+      ? Object.assign({}, S.f, { component: '', category: '', severity: '', site: '', status: 'all', sort: 'date-desc' })
+      : S.f;
     const terms = f.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const out = list.filter((it) => {
       if (f.component && it.component !== f.component) return false;
       if (f.category && it.category !== f.category) return false;
       if (f.severity && it.severity !== f.severity) return false;
+      if (f.site && (st(it.id).site || '') !== f.site) return false;
       const read = !!st(it.id).read;
       if (f.status === 'unread' && read) return false;
       if (f.status === 'read' && !read) return false;
@@ -161,12 +165,29 @@
   function cvssClass(v) { return v >= 9 ? 'c' : v >= 7 ? 'h' : v >= 4 ? 'm' : 'l'; }
   function starBtn(it) {
     const on = !!st(it.id).bookmarked;
-    return '<button class="icon-btn" data-action="toggle-bm" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Remove from shutdown plan' : 'Flag for shutdown plan') + '" aria-label="Flag for shutdown plan"><svg class="i"><use href="#i-star"/></svg></button>';
+    return '<button class="btn act" data-action="toggle-bm" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Remove from shutdown plan' : 'Add to shutdown plan') + '"><svg class="i"><use href="#i-star"/></svg>' + (on ? 'In plan' : '+ Plan') + '</button>';
   }
   function readBtn(it) {
     const on = !!st(it.id).read;
-    return '<button class="icon-btn" data-action="toggle-read" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Mark as unreviewed' : 'Mark as reviewed') + '" aria-label="Toggle reviewed"><svg class="i"><use href="#i-check"/></svg></button>';
+    return '<button class="btn act" data-action="toggle-read" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" title="' + (on ? 'Mark as unreviewed' : 'Mark as reviewed') + '"><svg class="i"><use href="#i-check"/></svg>' + (on ? 'Reviewed' : 'Review') + '</button>';
   }
+  const REBOOT = { yes: ['Reboot required', 'pill-bad'], service: ['Service restart', 'pill-warn'], no: ['No reboot', 'pill-ok'] };
+  const ROLLBACK = { low: ['Low', 'pill-ok'], moderate: ['Moderate', 'pill-warn'], high: ['High', 'pill-bad'] };
+  const rebootOf = (it) => st(it.id).reboot || it.reboot || '';
+  const rollbackOf = (it) => st(it.id).rollback || it.rollback || '';
+  function pill(map, key) { return key && map[key] ? '<span class="' + map[key][1] + '">' + map[key][0] + '</span>' : '<span class="muted">—</span>'; }
+
+  function listHtml(list) {
+    return '<div class="table-wrap"><table class="list-table"><thead><tr><th>Sev</th><th>Title</th><th>Component</th><th>Category</th><th>Reboot</th><th>Site</th><th>Date</th><th></th></tr></thead><tbody>' +
+      list.map((it) => '<tr class="' + (st(it.id).read ? '' : 'unread') + '" data-action="open" data-id="' + esc(it.id) + '">' +
+        '<td>' + sevBadge(it.severity) + '</td>' +
+        '<td class="ttl">' + esc(it.title) + (it.seed ? ' ' + badge('seed', 'SEED') : '') + '</td>' +
+        '<td>' + esc(it.component) + '</td><td class="small">' + esc(it.category) + '</td>' +
+        '<td class="small">' + pill(REBOOT, rebootOf(it)) + '</td><td class="small">' + esc(st(it.id).site || '—') + '</td>' +
+        '<td class="small" style="white-space:nowrap">' + fmtDate(it.timestamp) + '</td>' +
+        '<td><span class="act-row">' + readBtn(it) + starBtn(it) + '</span></td></tr>').join('') + '</tbody></table></div>';
+  }
+  function itemsHtml(list) { return S.settings.layout === 'list' ? listHtml(list) : '<div class="cards">' + list.map(cardHtml).join('') + '</div>'; }
 
   function cardHtml(it) {
     const s = st(it.id);
@@ -176,7 +197,7 @@
       '<h3>' + esc(it.title) + '</h3>' +
       '<p>' + esc(it.summary) + '</p>' +
       '<div class="card-foot">' + (it.cveId ? '<span class="vchip">' + esc(it.cveId) + '</span>' : '') +
-      versionChips(it.versions, 3) + '<span class="spacer"></span>' + readBtn(it) + starBtn(it) + '</div>' +
+      versionChips(it.versions, 3) + '<span class="spacer"></span><span class="act-row">' + readBtn(it) + starBtn(it) + '</span></div>' +
       '</article>';
   }
 
@@ -199,14 +220,14 @@
   }
 
   function renderFeed(list) {
-    return statsHtml() + (list.length ? '<div class="cards">' + list.map(cardHtml).join('') + '</div>' : emptyHtml('No records match the current filters.'));
+    return statsHtml() + (list.length ? itemsHtml(list) : emptyHtml('No records match the current filters.'));
   }
 
   function renderCritical(list) {
     const unread = list.filter((i) => !st(i.id).read).length;
     const head = viewHead('Critical Advisories', unread ? '<button class="btn" data-action="mark-all-critical"><svg class="i"><use href="#i-check"/></svg><span class="btn-label">Mark all reviewed</span></button>' : '');
     const intro = '<p class="muted" style="margin:0 0 12px">Critical-severity records and high-severity security patches. Unreviewed items are listed first and counted on the app icon badge.</p>';
-    return head + intro + (list.length ? '<div class="cards">' + list.map(cardHtml).join('') + '</div>' : emptyHtml('No critical advisories match the current filters. 🎉'));
+    return head + intro + (list.length ? itemsHtml(list) : emptyHtml('No critical advisories match the current filters.'));
   }
 
   function renderMatrix(list) {
@@ -216,7 +237,7 @@
       const rows = list.filter((p) => p.component === comp);
       if (!rows.length) return;
       html += '<h2 class="group-title">' + esc(comp) + badge('', rows.length + (rows.length === 1 ? ' release' : ' releases')) + '</h2>' +
-        '<div class="table-wrap"><table><thead><tr><th>Release / hotfix</th><th>Type</th><th>Impacted versions</th><th>Fixed in</th><th>KB / tech note</th><th>Severity</th><th>Date</th><th>SHA-256</th><th></th></tr></thead><tbody>' +
+        '<div class="table-wrap"><table><thead><tr><th>Release / hotfix</th><th>Type</th><th>Impacted versions</th><th>Fixed in</th><th>KB / tech note</th><th>Severity</th><th>Reboot</th><th>Rollback</th><th>Site</th><th>Date</th><th></th></tr></thead><tbody>' +
         rows.map((p) => '<tr data-action="open" data-id="' + esc(p.id) + '">' +
           '<td><strong>' + esc(p.title) + '</strong>' + (p.seed ? ' ' + badge('seed', 'SEED') : '') + (st(p.id).read ? '' : ' <span class="warn" title="Unreviewed">●</span>') + '</td>' +
           '<td>' + esc(p.releaseType || p.category) + '</td>' +
@@ -224,9 +245,10 @@
           '<td>' + esc(p.fixedIn || '—') + '</td>' +
           '<td class="mono small">' + esc(p.kb || '—') + '</td>' +
           '<td>' + sevBadge(p.severity) + '</td>' +
+          '<td class="small">' + pill(REBOOT, rebootOf(p)) + '</td><td class="small">' + pill(ROLLBACK, rollbackOf(p)) + '</td>' +
+          '<td class="small">' + esc(st(p.id).site || '—') + '</td>' +
           '<td class="small">' + fmtDate(p.timestamp) + '</td>' +
-          '<td class="mono small">' + (p.checksum ? esc(String(p.checksum).slice(0, 16)) + '…' : '—') + '</td>' +
-          '<td>' + starBtn(p) + '</td></tr>').join('') +
+          '<td><span class="act-row">' + starBtn(p) + '</span></td></tr>').join('') +
         '</tbody></table></div>';
     });
     const other = list.filter((p) => FEEDS.COMPONENTS.indexOf(p.component) === -1);
@@ -238,7 +260,7 @@
     if (!list.length) return viewHead('CISA ICS-CERT & CVE Tracker') + emptyHtml('No advisories match the current filters.');
     const open = list.filter((a) => (st(a.id).remediation || a.remediation || 'open') === 'open').length;
     return viewHead('CISA ICS-CERT & CVE Tracker', '<span class="muted">' + open + ' open · ' + (list.length - open) + ' tracked</span>') +
-      '<div class="table-wrap"><table><thead><tr><th>CVE ID</th><th>Advisory</th><th>Component</th><th>CVSS</th><th>Remediation status</th><th>Published</th><th></th></tr></thead><tbody>' +
+      '<div class="table-wrap"><table><thead><tr><th>CVE ID</th><th>Advisory</th><th>Component</th><th>CVSS</th><th>Remediation status</th><th>Site</th><th>Published</th><th></th></tr></thead><tbody>' +
       list.map((a) => {
         const rem = st(a.id).remediation || a.remediation || 'open';
         return '<tr data-action="open" data-id="' + esc(a.id) + '">' +
@@ -247,8 +269,9 @@
           '<td>' + badge('comp', a.component) + '</td>' +
           '<td>' + (a.cvss != null ? '<span class="cvss ' + cvssClass(a.cvss) + '">' + Number(a.cvss).toFixed(1) + '</span>' : '—') + '</td>' +
           '<td>' + remediationSelect(a.id, rem) + '</td>' +
+          '<td class="small">' + esc(st(a.id).site || '—') + '</td>' +
           '<td class="small">' + fmtDate(a.timestamp) + '</td>' +
-          '<td>' + starBtn(a) + '</td></tr>';
+          '<td><span class="act-row">' + starBtn(a) + '</span></td></tr>';
       }).join('') + '</tbody></table></div>';
   }
 
@@ -262,6 +285,7 @@
       '<button class="btn btn-accent" data-action="open-export"><svg class="i"><use href="#i-share"/></svg><span class="btn-label">Export shutdown report</span></button>');
     const intro = '<p class="muted" style="margin:0 0 12px">Items you flagged for the next maintenance shutdown. Flagged items and their notes are never removed by the retention policy.</p>';
     if (!list.length) return head + intro + emptyHtml('Nothing flagged yet. Use the ★ on any card or table row to add it to the shutdown plan.');
+    if (S.settings.layout === 'list') return head + intro + listHtml(list);
     return head + intro + '<div class="cards">' + list.map((it) => {
       const note = st(it.id).note;
       return cardHtml(it).replace('</article>', (note ? '<div class="small" style="border-top:1px solid var(--line);padding-top:6px"><span class="muted">Note:</span> ' + esc(note.slice(0, 240)) + '</div>' : '') + '</article>');
@@ -270,7 +294,7 @@
 
   function renderSources() {
     const feedRows = S.feeds.length ? S.feeds.map((f) =>
-      '<tr style="cursor:default"><td><strong>' + esc(f.name) + '</strong><div class="muted small mono" style="word-break:break-all">' + esc(f.url) + '</div></td>' +
+      '<tr style="cursor:default"><td><strong>' + esc(f.name) + '</strong><div class="muted small mono" style="word-break:break-all">' + esc(f.url) + '</div>' + (f.filter ? '<div class="muted small">Filter: ' + esc(f.filter) + '</div>' : '') + '</td>' +
       '<td>' + esc(f.component || 'Auto') + '</td>' +
       '<td class="small">' + (f.lastError ? '<span class="bad">' + esc(f.lastStatus) + ' — ' + esc(f.lastError) + '</span>' : esc(f.lastStatus || '—')) + '<div class="muted">' + esc(ago(f.lastSync || f.lastTry)) + '</div></td>' +
       '<td><label class="row" style="gap:6px"><input type="checkbox" data-feed-toggle="' + esc(f.id) + '"' + (f.enabled === false ? '' : ' checked') + '> on</label></td>' +
@@ -350,7 +374,7 @@
     const v = S.view;
     renderNav();
     renderBanner();
-    $('#filters').hidden = !VIEWS[v].filters;
+    $('#filters').hidden = !VIEWS[v].filters || VIEWS[v].bar === false;
     syncFilterControls();
     const el = $('#view');
     let html = '';
@@ -393,14 +417,20 @@
   function renderBanner() {
     const b = $('#banner');
     const hasSeed = S.items.some((i) => i.seed);
-    if (!hasSeed || S.settings.bannerDismissed) { b.hidden = true; return; }
+    if (!hasSeed || S.settings.bannerDismissed || !VIEWS[S.view].filters) { b.hidden = true; return; }
     b.hidden = false;
-    b.innerHTML = '<div><strong>Illustrative seed data.</strong> Records marked <span class="badge seed">SEED</span> demonstrate the data model and are <em>not</em> official bulletins. Add real feeds or import vendor/CISA data under Sources &amp; Import, then delete the seed records in Storage &amp; Sync. Always verify against AVEVA Security Central and CISA before acting.</div>' +
+    b.className = 'banner slim';
+    b.innerHTML = '<div><strong>Seed data:</strong> <span class="badge seed">SEED</span> records are illustrative, not official bulletins. Verify against AVEVA / CISA. <a href="#/storage">Delete seed records</a></div>' +
       '<button class="icon-btn" data-action="dismiss-banner" aria-label="Dismiss"><svg class="i"><use href="#i-x"/></svg></button>';
   }
 
   function syncFilterControls() {
+    const siteSel = $('[data-filter="site"]');
+    const sites = Array.from(new Set(Object.values(S.states).map((x) => x.site).filter(Boolean))).sort();
+    if (S.f.site && sites.indexOf(S.f.site) === -1) S.f.site = '';
+    siteSel.innerHTML = '<option value="">All sites</option>' + sites.map((x) => '<option>' + esc(x) + '</option>').join('');
     $$('[data-filter]').forEach((sel) => { sel.value = S.f[sel.dataset.filter]; });
+    $$('[data-layout]').forEach((b) => b.setAttribute('aria-pressed', String((S.settings.layout || 'cards') === b.dataset.layout)));
     const q = $('#q');
     if (document.activeElement !== q) q.value = S.f.q;
   }
@@ -450,6 +480,18 @@
       '<p class="detail-text">' + esc(it.summary) + '</p>' +
       (it.body ? '<p class="detail-text">' + esc(it.body) + '</p>' : '') +
       '<dl class="dl">' + rows.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + v + '</dd>').join('') + '</dl>' +
+      '<h3 style="margin-top:14px">Maintenance planning</h3>' +
+      '<div class="plan-grid">' +
+      '<label class="field">Reboot required?<select data-plan="' + esc(id) + '" data-field="reboot"><option value="">Not set</option>' + Object.keys(REBOOT).map((k) => '<option value="' + k + '"' + (rebootOf(it) === k ? ' selected' : '') + '>' + REBOOT[k][0] + '</option>').join('') + '</select></label>' +
+      '<label class="field">Rollback complexity<select data-plan="' + esc(id) + '" data-field="rollback"><option value="">Not set</option>' + Object.keys(ROLLBACK).map((k) => '<option value="' + k + '"' + (rollbackOf(it) === k ? ' selected' : '') + '>' + ROLLBACK[k][0] + '</option>').join('') + '</select></label>' +
+      '<label class="field">Client site / galaxy<input type="text" list="siteList" data-plan="' + esc(id) + '" data-field="site" maxlength="80" placeholder="Site A - InTouch 2020 R2" value="' + esc(s.site || '') + '"></label>' +
+      '<label class="field">Target node<input type="text" data-plan="' + esc(id) + '" data-field="targetNode" maxlength="80" placeholder="GR-NODE01" value="' + esc(s.targetNode || '') + '"></label>' +
+      '<label class="field wide">Expected downtime<input type="text" data-plan="' + esc(id) + '" data-field="downtime" maxlength="40" placeholder="e.g. 45 min" value="' + esc(s.downtime || '') + '"></label>' +
+      '<datalist id="siteList">' + Array.from(new Set(Object.values(S.states).map((x) => x.site).filter(Boolean))).map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist>' +
+      '</div>' +
+      (it.kind === 'patch' ? '<div class="hash-box"><h3>Verify downloaded file (SHA-256)</h3>' +
+        '<label class="field">Expected SHA-256 (from the vendor download page)<input type="text" class="mono" id="hashExpected" data-plan="' + esc(id) + '" data-field="checksum" placeholder="64 hex characters" value="' + esc(s.checksum || it.checksum || '') + '"></label>' +
+        '<label class="field">Downloaded file<input type="file" id="hashFile"></label><div id="hashResult" class="hash-result muted">Computed locally in your browser; the file is never uploaded.</div></div>' : '') +
       '<label class="field">Engineering notes (saved offline; kept permanently)<textarea id="detailNote" data-note="' + esc(id) + '" rows="4" placeholder="Impact on our galaxy, test results, shutdown window, change ticket…">' + esc(s.note || '') + '</textarea></label>' +
       '<div class="dlg-actions">' +
       '<button class="btn ' + (s.bookmarked ? 'btn-accent' : '') + '" data-action="toggle-bm" data-id="' + esc(id) + '"><svg class="i"><use href="#i-star"/></svg><span class="btn-label">' + (s.bookmarked ? 'Flagged for shutdown' : 'Flag for shutdown plan') + '</span></button>' +
@@ -520,6 +562,29 @@
     toast(value.trim() ? 'Note saved offline' : 'Note cleared', 'ok');
   }
 
+  async function savePlan(id, field, value) {
+    const it = S.items.find((i) => i.id === id);
+    if (!it || (st(id)[field] || '') === value) return;
+    S.states[id] = await DB.setState(id, { kind: it.kind, [field]: value });
+    S.hay.delete(id);
+    toast('Saved', 'ok');
+    renderListOnly();
+  }
+
+  async function verifyHash(file) {
+    const out = $('#hashResult');
+    if (!(window.crypto && crypto.subtle)) { out.className = 'hash-result bad'; out.textContent = 'SHA-256 needs a secure context (HTTPS or localhost).'; return; }
+    out.className = 'hash-result muted'; out.textContent = 'Hashing ' + file.name + ' (' + fmtBytes(file.size) + ')…';
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+      const exp = ($('#hashExpected').value || '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
+      if (!exp) { out.className = 'hash-result warn'; out.textContent = 'Computed: ' + hex + ' — enter the expected value to compare.'; }
+      else if (exp === hex) { out.className = 'hash-result ok'; out.textContent = '✔ MATCH — ' + hex; }
+      else { out.className = 'hash-result bad'; out.textContent = '✘ MISMATCH — do not install.\nComputed: ' + hex + '\nExpected: ' + exp; }
+    } catch (err) { out.className = 'hash-result bad'; out.textContent = 'Could not read file: ' + err.message; }
+  }
+
   async function setRemediation(id, value) {
     const it = S.items.find((i) => i.id === id);
     if (!it) return;
@@ -556,8 +621,10 @@
     S.syncing = true; setSyncUi(true);
     try {
       const r = await FEEDS.syncAll({ origin: origin || 'manual' });
-      toast(r.message, r.failed ? 'warn' : 'ok');
-      if (r.errors.length) toast(r.errors[0], 'err');
+      if (!origin || origin === 'manual') {
+        toast(r.message, r.failed ? 'warn' : 'ok');
+        if (r.errors.length) toast(r.errors[0], 'err');
+      } else if (r.added) toast(r.added + ' new item(s) from feeds', 'ok');
     } catch (err) {
       toast('Sync failed: ' + err.message, 'err');
     } finally {
@@ -649,12 +716,65 @@
     }, null, 2);
   }
 
-  function buildExport() {
+  const REBOOT_TXT = { yes: 'Yes', service: 'Service restart only', no: 'No' };
+  const ROLLBACK_TXT = { low: 'Low', moderate: 'Moderate', high: 'High' };
+
+  function planRow(it) {
+    const s = st(it.id);
+    return {
+      component: it.component, site: s.site || '', node: s.targetNode || '', name: it.title,
+      kb: it.kb || it.cveId || '', versions: (it.versions || []).join('; '), severity: SEV_LABEL[it.severity] || it.severity,
+      reboot: REBOOT_TXT[rebootOf(it)] || '', rollback: ROLLBACK_TXT[rollbackOf(it)] || '',
+      downtime: s.downtime || '', fixedIn: it.fixedIn || '', checksum: s.checksum || it.checksum || '', note: (s.note || '').trim(), seed: !!it.seed
+    };
+  }
+
+  function csvCell(v) {
+    let t = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // neutralise spreadsheet formula injection
+    return '"' + t.replace(/"/g, '""') + '"';
+  }
+
+  function buildCsvReport(items) {
+    const head = ['Component', 'Client Site', 'Target Node', 'Patch Name', 'KB / CVE', 'Impacted Versions', 'Fixed In', 'Severity', 'Reboot Required', 'Rollback Complexity', 'Expected Downtime', 'SHA-256', 'Notes', 'Seed (illustrative)', 'Sign-off'];
+    const rows = sortForReport(items).map((it) => {
+      const r = planRow(it);
+      return [r.component, r.site, r.node, r.name, r.kb, r.versions, r.fixedIn, r.severity, r.reboot, r.rollback, r.downtime, r.checksum, r.note, r.seed ? 'YES' : '', ''];
+    });
+    return '\ufeff' + [head].concat(rows).map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  }
+
+  function buildWorkOrder(items, label, autoPrint) {
+    const rows = sortForReport(items).map(planRow);
+    const e = esc;
+    const body = rows.length ? rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + e(r.component) + '</td><td>' + e(r.site) + '</td><td>' + e(r.node) + '</td>' +
+      '<td><strong>' + e(r.name) + '</strong>' + (r.seed ? ' <em>[SEED]</em>' : '') + '<br><small>' + e(r.versions) + (r.fixedIn ? ' → ' + e(r.fixedIn) : '') + '</small>' + (r.note ? '<br><small>Note: ' + e(r.note) + '</small>' : '') + '</td>' +
+      '<td>' + e(r.kb) + '</td><td>' + e(r.severity) + '</td><td>' + e(r.reboot) + '</td><td>' + e(r.rollback) + '</td><td>' + e(r.downtime) + '</td><td class="sig"></td></tr>').join('') :
+      '<tr><td colspan="11">No items in scope.</td></tr>';
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Maintenance Work Order</title><style>' +
+      '@page{size:A4 landscape;margin:12mm}body{font:12px/1.4 "Segoe UI",Arial,sans-serif;color:#111;margin:16px}h1{font-size:20px;margin:0 0 4px}' +
+      '.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 16px;margin:10px 0 14px}.meta div{border-bottom:1px solid #999;padding:2px 0;min-height:22px}.meta b{font-size:10px;text-transform:uppercase;color:#555;display:block}' +
+      'table{width:100%;border-collapse:collapse}th,td{border:1px solid #888;padding:5px 6px;vertical-align:top;text-align:left}th{background:#e8ebf0;font-size:10px;text-transform:uppercase}.sig{width:120px;height:44px}' +
+      '.foot{margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.foot div{border-top:1px solid #111;padding-top:4px;font-size:11px}.warn{margin-top:10px;font-size:11px;color:#555}' +
+      '.noprint{margin-bottom:12px}@media print{.noprint{display:none}body{margin:0}}</style></head><body>' +
+      '<div class="noprint"><button onclick="window.print()">Print / Save as PDF</button></div>' +
+      '<h1>Maintenance Work Order — Patch &amp; Update Schedule</h1><div>Al Gurg Automation and Controls · SCADA Engineering</div>' +
+      '<div class="meta"><div><b>Work order no.</b></div><div><b>Client / site</b></div><div><b>Planned date &amp; window</b></div><div><b>Change ticket</b></div>' +
+      '<div><b>Prepared by</b></div><div><b>Generated</b>' + e(new Date().toLocaleString('en-GB')) + '</div><div><b>Scope</b>' + e(label) + '</div><div><b>Items</b>' + rows.length + '</div></div>' +
+      '<table><thead><tr><th>#</th><th>Component</th><th>Site / galaxy</th><th>Target node</th><th>Patch / advisory</th><th>KB / CVE</th><th>Severity</th><th>Reboot</th><th>Rollback</th><th>Expected downtime</th><th>Done / initials</th></tr></thead><tbody>' + body + '</tbody></table>' +
+      '<div class="foot"><div>Engineer — name / signature / date</div><div>Operations representative — signature / date</div><div>Client approval — signature / date</div></div>' +
+      '<p class="warn">Verify every item against official AVEVA / CISA publications and test on a non-production galaxy first. Back up the Galaxy Repository and verify SHA-256 of downloaded installers before deployment.' + (rows.some((r) => r.seed) ? ' Contains illustrative SEED records.' : '') + '</p>' +
+      (autoPrint ? '<script>window.addEventListener("load",function(){setTimeout(function(){window.print()},400)})<\/script>' : '') + '</body></html>';
+  }
+
+  function buildExport(autoPrint) {
     const scope = ($('input[name="exScope"]:checked') || {}).value || 'flagged';
-    const format = ($('input[name="exFormat"]:checked') || {}).value || 'text';
+    const format = ($('input[name="exFormat"]:checked') || {}).value || 'workorder';
     const { items, label } = currentScopeItems(scope);
     const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     if (format === 'json') return { text: buildJsonReport(items, label), name: 'wondertech-pulse-report-' + stamp + '.json', mime: 'application/json', count: items.length };
+    if (format === 'csv') return { text: buildCsvReport(items), name: 'wondertech-work-order-' + stamp + '.csv', mime: 'text/csv', count: items.length };
+    if (format === 'workorder') return { text: buildWorkOrder(items, label, autoPrint), name: 'wondertech-work-order-' + stamp + '.html', mime: 'text/html', count: items.length };
     return { text: buildTextReport(items, label), name: 'wondertech-pulse-report-' + stamp + '.txt', mime: 'text/plain', count: items.length };
   }
 
@@ -699,6 +819,7 @@
     $('#feedName').value = (prefill && prefill.name) || '';
     $('#feedUrl').value = (prefill && prefill.url) || '';
     $('#feedComponent').value = '';
+    $('#feedFilter').value = '';
     const d = $('#feedDlg');
     if (!d.open) d.showModal();
     $('#feedName').focus();
@@ -709,6 +830,8 @@
     const name = $('#feedName').value.trim();
     const url = $('#feedUrl').value.trim();
     const component = $('#feedComponent').value;
+    const filter = $('#feedFilter').value.trim();
+    try { if (filter) new RegExp(filter); } catch (_) { toast('Keyword filter is not a valid regex', 'err'); return; }
     try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) throw new Error('bad'); } catch (_) { toast('Enter a valid http(s) URL', 'err'); return; }
     const btn = e.submitter || $('#feedForm button[type="submit"]');
     btn.disabled = true; btn.textContent = 'Testing…';
@@ -717,7 +840,7 @@
       try { found = await FEEDS.testFeed({ name, url, component }); } catch (err) {
         if (!confirm('Could not read this feed right now:\n' + err.message + '\n\nAdd it anyway? It will be retried on every sync.')) throw new Error('cancelled');
       }
-      await FEEDS.addFeed({ name, url, component });
+      await FEEDS.addFeed({ name, url, component, filter });
       await DB.log('feeds', 'Feed added: ' + name, { url }, true);
       $('#feedDlg').close();
       toast(found != null ? 'Feed added — ' + found + ' items found. Syncing…' : 'Feed added', 'ok');
@@ -807,15 +930,24 @@
     'toggle-read': (el) => toggleRead(el.dataset.id),
     'close-dialog': (el) => el.closest('dialog').close(),
     sync: () => doSync('manual'),
+    layout: async (el) => { await DB.setSettings({ layout: el.dataset.layout }); await refresh(true); },
     install: async () => {
       const r = await PWA.promptInstall();
       if (r.outcome === 'accepted') toast('Installing WonderTech Pulse…', 'ok');
       $('#btnInstall').hidden = !PWA.canInstall;
     },
     'goto-storage': () => { location.hash = '#/storage'; },
-    'clear-filters': () => { S.f = { q: '', component: '', category: '', severity: '', status: 'all', sort: 'date-desc' }; render(); },
+    'clear-filters': () => { S.f = { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc' }; render(); },
     'open-export': () => { updateExportInfo(); const d = $('#exportDlg'); if (!d.open) d.showModal(); },
     'export-download': () => { const x = buildExport(); downloadBlob(x.text, x.name, x.mime); toast('Report downloaded (' + x.count + ' items)', 'ok'); },
+    'export-print': () => {
+      const x = buildExport(true);
+      const fmt = ($('input[name="exFormat"]:checked') || {}).value;
+      if (fmt !== 'workorder') { toast('Print / PDF is available for the work-order format', 'warn'); return; }
+      const url = URL.createObjectURL(new Blob([x.text], { type: 'text/html;charset=utf-8' }));
+      if (!window.open(url, '_blank')) toast('Pop-up blocked — allow pop-ups, or use Download and open the file', 'warn');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    },
     'export-share': async () => {
       const x = buildExport();
       const ok = await shareText(x.text, x.name, x.mime, 'WonderTech Pulse report');
@@ -905,6 +1037,8 @@
       if (t.dataset && t.dataset.filter) { S.f[t.dataset.filter] = t.value; render(); return; }
       if (t.dataset && t.dataset.remediation) { await setRemediation(t.dataset.remediation, t.value); return; }
       if (t.dataset && t.dataset.note) { await saveNote(t.dataset.note, t.value); return; }
+      if (t.dataset && t.dataset.plan) { await savePlan(t.dataset.plan, t.dataset.field, t.value.trim()); return; }
+      if (t.id === 'hashFile' && t.files[0]) { await verifyHash(t.files[0]); return; }
       if (t.dataset && t.dataset.feedToggle) {
         const feeds = await DB.getMeta('feeds', []);
         const f = feeds.find((x) => x.id === t.dataset.feedToggle);
@@ -952,6 +1086,7 @@
     try {
       await DB.open();
       await FEEDS.ensureSeed();
+      await FEEDS.ensureDefaultFeeds();
     } catch (err) {
       $('#view').innerHTML = emptyHtml('Local database unavailable: ' + esc(err.message) + '<br>WonderTech Pulse needs IndexedDB. Disable private browsing and reload.');
       return;

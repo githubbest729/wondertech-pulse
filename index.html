@@ -90,6 +90,9 @@
           <option value="read">Reviewed</option>
         </select>
       </label>
+      <label>Client site
+        <select data-filter="site"><option value="">All sites</option></select>
+      </label>
       <label>Sort
         <select data-filter="sort">
           <option value="date-desc">Newest first</option>
@@ -98,6 +101,10 @@
           <option value="component">Component</option>
         </select>
       </label>
+      <div class="seg" role="group" aria-label="Layout">
+        <button type="button" class="btn" data-action="layout" data-layout="cards" aria-pressed="true">Cards</button>
+        <button type="button" class="btn" data-action="layout" data-layout="list" aria-pressed="false">List</button>
+      </div>
       <button class="btn ghost" data-action="clear-filters" type="button">Reset</button>
       <button class="btn" data-action="open-export" type="button"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export report</span></button>
       <span id="resultCount" class="muted result-count" aria-live="polite"></span>
@@ -126,12 +133,15 @@
       <label><input type="radio" name="exScope" value="all"> Everything in local database</label>
     </fieldset>
     <fieldset class="radio-group"><legend>Format</legend>
-      <label><input type="radio" name="exFormat" value="text" checked> Formatted text (.txt)</label>
+      <label><input type="radio" name="exFormat" value="workorder" checked> Maintenance work order (printable, save as PDF)</label>
+      <label><input type="radio" name="exFormat" value="csv"> Excel / CSV (.csv)</label>
+      <label><input type="radio" name="exFormat" value="text"> Formatted text (.txt)</label>
       <label><input type="radio" name="exFormat" value="json"> JSON (.json)</label>
     </fieldset>
     <p id="exportInfo" class="muted"></p>
     <div class="dlg-actions">
       <button class="btn btn-accent" data-action="export-download"><svg class="i"><use href="#i-download"/></svg><span class="btn-label">Download</span></button>
+      <button class="btn" data-action="export-print"><svg class="i"><use href="#i-file"/></svg><span class="btn-label">Print / PDF</span></button>
       <button class="btn" data-action="export-share"><svg class="i"><use href="#i-share"/></svg><span class="btn-label">Share</span></button>
       <button class="btn" data-action="export-copy"><svg class="i"><use href="#i-file"/></svg><span class="btn-label">Copy</span></button>
     </div>
@@ -150,6 +160,9 @@
     </label>
     <label class="field">Default component (optional)
       <select id="feedComponent"><option value="">Auto-detect from content</option></select>
+    </label>
+    <label class="field">Keyword filter (optional, regex — keep only matching items)
+      <input id="feedFilter" type="text" placeholder="aveva|wonderware|intouch" maxlength="200">
     </label>
     <p class="muted small">Browsers only allow feeds that send CORS headers. If a source is blocked, configure a CORS proxy prefix under Sources &amp; Import → Settings, or import the feed file manually.</p>
     <div class="dlg-actions">

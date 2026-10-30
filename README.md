@@ -73,7 +73,16 @@ wondertech-pulse/
 
 Shortcuts: `/` focuses search. Opening a record marks it reviewed.
 
-**Export for a shutdown meeting:** *Export report* → choose scope (flagged / current view / everything) and format (formatted text or JSON) → **Download**, **Share** (Web Share where available) or **Copy**.
+**Export for a shutdown meeting:** *Export report* → choose scope (flagged / current view / everything) and format:
+- **Maintenance work order** — printable A4 landscape table with Component, Site, Target node, Patch, KB/CVE, Severity, Reboot, Rollback, Expected downtime and per-row plus footer **sign-off lines**. Use **Print / PDF** and choose *Save as PDF*.
+- **Excel / CSV** — same columns, UTF-8 with BOM for Excel; cells starting with `= + - @` are neutralised against formula injection.
+- Formatted text or JSON.
+
+Then **Download**, **Share** (Web Share where available) or **Copy**.
+
+**Planning fields.** Open any record (slide-over drawer) to set *Reboot required*, *Rollback complexity*, *Client site / galaxy*, *Target node*, *Expected downtime* and notes; filter by site from the filter bar. Patch records have a **SHA-256 verifier**: pick the downloaded installer and compare with the vendor checksum (hashed locally, nothing uploaded). Intel Feed / Critical / Shutdown Plan can switch between **Cards** and **List** layouts.
+
+**Default feed.** A CISA ICS-advisories feed (filtered to AVEVA / Wonderware / InTouch / Citect / Schneider Electric) is pre-configured. Its URL could not be verified from the build environment, and CISA may not send CORS headers: check its status under Sources & Import and set a CORS proxy you control if needed. No AVEVA bulletin feed is pre-configured because no public feed URL was verified; add one via *Add feed*. The app deliberately ships no third-party public CORS proxy, since that would route your requests through a service you don't control.
 
 **Capabilities by browser**
 

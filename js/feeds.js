@@ -254,6 +254,28 @@
     return { seeded: true, added: res.added };
   }
 
+  /** Pre-configured feeds, added once. The user can edit or remove them in Sources & Import. */
+  const DEFAULT_FEEDS = [{
+    name: 'CISA ICS advisories (AVEVA / Schneider filter)',
+    url: 'https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml',
+    kind: 'advisory', filter: 'aveva|wonderware|intouch|citect|schneider electric'
+  }];
+
+  async function ensureDefaultFeeds() {
+    const DB = root.WTP_DB;
+    if (await DB.getMeta('defaultFeedsV', 0) >= 1) return 0;
+    const feeds = await DB.getMeta('feeds', []);
+    let n = 0;
+    for (const d of DEFAULT_FEEDS) {
+      if (feeds.some((f) => f.url === d.url)) continue;
+      feeds.push(Object.assign({ id: 'feed-' + hash(d.url), component: '', enabled: true, addedAt: Date.now(), lastSync: null, lastStatus: 'Never synced', builtin: true }, d));
+      n++;
+    }
+    await DB.setMeta('feeds', feeds);
+    await DB.setMeta('defaultFeedsV', 1);
+    return n;
+  }
+
   async function removeSeed() {
     const DB = root.WTP_DB;
     const removed = await DB.deleteWhere((r) => r.seed === true);
@@ -385,6 +407,10 @@
     if (!Array.isArray(out.versions)) out.versions = [];
     if (!Array.isArray(out.tags)) out.tags = [];
     if (out.kind === 'advisory') {
+      if (!out.cveId) {
+        const m = [rec.title, rec.summary, rec.url].join(' ').match(/CVE-\d{4}-\d{4,}|ICSA-\d{2}-\d{3}-\d{2}/i);
+        if (m) out.cveId = m[0].toUpperCase();
+      }
       out.cvss = out.cvss == null || out.cvss === '' ? null : Number(out.cvss);
       out.remediation = out.remediation || 'open';
     }
@@ -468,7 +494,7 @@
     if (feeds.some((f) => f.url === url)) throw new Error('This feed URL is already configured');
     const rec = {
       id: 'feed-' + hash(url + Date.now()), name: feed.name || url, url,
-      component: feed.component || '', enabled: true, addedAt: Date.now(), lastSync: null, lastStatus: 'Never synced'
+      component: feed.component || '', kind: feed.kind || '', filter: feed.filter || '', enabled: true, addedAt: Date.now(), lastSync: null, lastStatus: 'Never synced'
     };
     feeds.push(rec);
     await DB.setMeta('feeds', feeds);
@@ -496,10 +522,22 @@
       try {
         const text = await fetchText(f.url, settings.corsProxy);
         const parsed = importText(text, { name: f.name, component: f.component });
-        const recs = (parsed.records || []).map((r) => Object.assign(r, { source: f.name || f.url, feedId: f.id }));
+        let recs = (parsed.records || []);
+        if (f.filter) {
+          let re = null;
+          try { re = new RegExp(f.filter, 'i'); } catch (_) { throw new Error('Invalid keyword filter regex'); }
+          recs = recs.filter((r) => re.test([r.title, r.summary, (r.tags || []).join(' ')].join(' ')));
+        }
+        recs = recs.map((r) => {
+          const o = Object.assign(r, { source: f.name || f.url, feedId: f.id });
+          if (f.kind && KINDS.indexOf(f.kind) !== -1) {
+            if (!r.kind || r.kind === 'article') return finalize(Object.assign({}, o, { kind: f.kind, id: o.id }));
+          }
+          return o;
+        });
         const res = await DB.upsertContent(recs);
         summary.ok++; summary.added += res.added; summary.updated += res.updated;
-        status[f.id] = { lastSync: Date.now(), lastStatus: 'OK · ' + recs.length + ' items (' + res.added + ' new)', lastError: null };
+        status[f.id] = { lastSync: Date.now(), lastStatus: 'OK · ' + recs.length + ' matching items (' + res.added + ' new)', lastError: null };
       } catch (err) {
         summary.failed++; summary.errors.push((f.name || f.url) + ': ' + err.message);
         status[f.id] = { lastTry: Date.now(), lastStatus: 'Failed', lastError: err.message };
@@ -531,7 +569,7 @@
 
   root.WTP_FEEDS = {
     COMPONENTS, CATEGORIES, SEVERITIES, SEED_VERSION,
-    seedRecords, ensureSeed, removeSeed,
+    seedRecords, ensureSeed, ensureDefaultFeeds, DEFAULT_FEEDS, removeSeed,
     classify, parseFeedXml, importText, hash,
     fetchText, addFeed, testFeed, syncAll
   };
