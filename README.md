@@ -24,7 +24,7 @@
 
 | Attribute | Specification |
 | :--- | :--- |
-| **Organization** | Al Gurg Automation and Controls (AGAC) |
+| **Organization** | (AGAC) |
 | **Operational Division** | SCADA Engineering & Infrastructure Commissioning |
 | **Location** | Dubai, United Arab Emirates |
 | **Target Field Devices** | Panasonic Toughbook, Getac Rugged Field Tablets, Control Desk Dual-Monitor Consoles, iPad Pro (Field Service) |
