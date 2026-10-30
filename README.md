@@ -32,7 +32,6 @@
 
 > ⚠️ **Seed Data Operational Notice:** Built-in seed records marked `SEED` are illustrative engineering models designed to demonstrate schema functionality. They do not constitute certified vendor advisories. In production, SCADA engineers must ingest live feeds via verified sources and validate all remediation strategies against AVEVA Security Central and CISA ICS-CERT advisories prior to executing downtime operations.
 
----
 
 ## 🏗️ System Architecture & Data Flow
 
