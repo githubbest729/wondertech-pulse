@@ -35,7 +35,6 @@
 
 ## 🏗️ System Architecture & Data Flow
 
-### 🏗️ System Architecture & Data Flow
 
 ```mermaid
 flowchart TB
