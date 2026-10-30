@@ -37,6 +37,7 @@
 ## 🏗️ System Architecture & Data Flow
 
 ```mermaid
+
 flowchart TB
     subgraph INGESTION["1. Ingestion & Feed Engine"]
         A1["AVEVA Security Central (RSS / XML)"]
