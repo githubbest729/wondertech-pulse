@@ -1,5 +1,4 @@
 # WonderTech Pulse
-
 Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
 
 Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.).
