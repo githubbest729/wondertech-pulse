@@ -38,6 +38,7 @@
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM14 2v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 3v10M8 9l4 4 4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.6a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8M12 17v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   </defs>
 </svg>
 
@@ -51,6 +52,7 @@
   <div class="tb-search no-drag">
     <input id="q" type="search" placeholder="Search CVE, KB, component, version…  ( / )" aria-label="Search all records" autocomplete="off" spellcheck="false">
   </div>
+  <button id="btnGuide" class="btn no-drag" data-action="open-tour" type="button" aria-label="Open application user guide and interactive tour"><svg class="i" aria-hidden="true"><use href="#i-help"/></svg><span class="btn-label">Guide</span></button>
   <div class="tb-actions no-drag">
     <span id="netChip" class="chip chip-ok" title="Network status">ONLINE</span>
     <button id="storageChip" class="chip chip-btn" data-action="goto-storage" title="Storage persistence status">Storage…</button>
@@ -68,6 +70,7 @@
     <a href="#/flagged" data-view="flagged"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg><span class="nav-label">Shutdown Plan</span><span class="count count-amber" data-count="flagged">0</span></a>
     <a href="#/sources" data-view="sources"><svg class="i" aria-hidden="true"><use href="#i-rss"/></svg><span class="nav-label">Sources &amp; Import</span></a>
     <a href="#/storage" data-view="storage"><svg class="i" aria-hidden="true"><use href="#i-db"/></svg><span class="nav-label">Storage &amp; Sync</span></a>
+    <a href="#/guide" data-view="guide" class="nav-guide"><span class="nav-emoji" aria-hidden="true">📖</span><span class="nav-label">User Guide &amp; Quickstart</span></a>
   </nav>
 
   <main id="main">
@@ -106,7 +109,7 @@
         <button type="button" class="btn" data-action="layout" data-layout="list" aria-pressed="false">List</button>
       </div>
       <button class="btn ghost" data-action="clear-filters" type="button">Reset</button>
-      <button class="btn" data-action="open-export" type="button"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export report</span></button>
+      <button class="btn" data-action="open-export" type="button" data-tip="Download filtered records as CSV, JSON, or printable work order."><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export report</span></button>
       <span id="resultCount" class="muted result-count" aria-live="polite"></span>
     </section>
 
@@ -170,6 +173,30 @@
       <button class="btn ghost" type="button" data-action="close-dialog">Cancel</button>
     </div>
   </form>
+</dialog>
+
+<!-- Interactive tour -->
+<dialog id="tourDlg" role="dialog" aria-modal="true" aria-labelledby="tourTitle" aria-describedby="tourPurpose">
+  <div class="dlg-body tour">
+    <div class="tour-top">
+      <span class="tour-kicker"><svg class="i" aria-hidden="true"><use href="#i-pulse"/></svg> 1-minute tour · <span id="tourCount">Step 1 of 4</span></span>
+      <button class="icon-btn" data-action="tour-skip" aria-label="Close tour"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <h2 id="tourTitle">Welcome to WonderTech Pulse — SCADA Intelligence &amp; Shutdown Planner</h2>
+    <p id="tourPurpose" class="tour-purpose">Designed for SCADA engineers to track AVEVA / Wonderware security bulletins, CISA advisories, and organize maintenance shutdown work orders 100% offline.</p>
+    <ol id="tourDots" class="tour-dots" aria-hidden="true"></ol>
+    <section id="tourStep" class="tour-step" aria-live="polite"></section>
+    <p class="tour-hint">Keyboard: <kbd>Enter</kbd> next step · <kbd>Tab</kbd> moves between buttons · <kbd>Esc</kbd> closes.</p>
+    <div class="tour-foot">
+      <label class="tour-check"><input type="checkbox" id="tourDontShow" checked> Don't show this automatically on launch</label>
+      <div class="tour-btns">
+        <button class="btn ghost" id="tourSkip" data-action="tour-skip" type="button">Skip</button>
+        <button class="btn" id="tourBack" data-action="tour-back" type="button">Back</button>
+        <button class="btn btn-accent" id="tourNext" data-action="tour-next" type="button">Next</button>
+        <button class="btn" id="tourStart" data-action="tour-close" type="button">Start Exploring</button>
+      </div>
+    </div>
+  </div>
 </dialog>
 
 <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>

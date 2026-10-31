@@ -40,7 +40,8 @@
     cisa: { title: 'CISA ICS-CERT & CVE Tracker', filters: true, bar: false },
     flagged: { title: 'Shutdown Plan — Flagged Items', filters: true, bar: false },
     sources: { title: 'Sources & Import', filters: false },
-    storage: { title: 'Storage & Sync', filters: false }
+    storage: { title: 'Storage & Sync', filters: false },
+    guide: { title: 'User Guide & Quickstart', filters: false }
   };
 
   /* -------------------------------- state -------------------------------- */
@@ -168,12 +169,12 @@
     // The accessible name states the action and the item; the on/off look is a CSS class (no aria-pressed, which
     // would contradict a label that already flips between "Add…" and "Remove…").
     const label = on ? 'In plan: remove ' + it.title + ' from shutdown plan' : '+ Plan: add ' + it.title + ' to shutdown plan';
-    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-bm" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg>' + (on ? 'In plan' : '+ Plan') + '</button>';
+    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-bm" data-tip="' + esc(on ? 'In your shutdown plan. Click to remove it.' : 'Add this patch to your plant shutdown maintenance schedule.') + '" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg>' + (on ? 'In plan' : '+ Plan') + '</button>';
   }
   function readBtn(it) {
     const on = !!st(it.id).read;
     const label = on ? 'Reviewed: mark ' + it.title + ' as unreviewed' : 'Review: mark ' + it.title + ' as reviewed';
-    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-read" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>' + (on ? 'Reviewed' : 'Review') + '</button>';
+    return '<button class="btn act' + (on ? ' on' : '') + '" data-action="toggle-read" data-tip="' + esc(on ? 'Reviewed. Click to mark it as unreviewed.' : 'Mark as reviewed by your engineering team.') + '" data-id="' + esc(it.id) + '" aria-label="' + esc(label) + '"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>' + (on ? 'Reviewed' : 'Review') + '</button>';
   }
   // Planning fields: the engineer's own value (stored per record in IndexedDB) wins over the record's built-in value,
   // including an explicit blank, so a seed value can always be cleared.
@@ -320,7 +321,7 @@
     const total = S.items.filter((i) => st(i.id).bookmarked).length;
     // No blank exports: the button only exists once at least one item is flagged.
     const head = viewHead('Shutdown Plan — Flagged Items', total
-      ? '<button class="btn btn-accent" data-action="open-export"><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export shutdown report</span></button>' : '');
+      ? '<button class="btn btn-accent" data-action="open-export" data-tip="Download filtered records as CSV, JSON, or printable work order."><svg class="i" aria-hidden="true"><use href="#i-share"/></svg><span class="btn-label">Export shutdown report</span></button>' : '');
     if (!total) return head + emptyPlanHtml(false);
     const intro = '<p class="muted" style="margin:0 0 12px">' + total + ' item' + (total === 1 ? '' : 's') + ' queued for the next maintenance shutdown. Flagged items and their notes are never removed by the retention policy.</p>';
     if (!list.length) return head + intro + emptyPlanHtml(true);
@@ -443,6 +444,7 @@
       case 'cisa': html = renderCisa(list); break;
       case 'flagged': html = renderFlagged(list); break;
       case 'sources': html = renderSources(); break;
+      case 'guide': html = renderGuide(); break;
       case 'storage': renderStorage().catch((e) => { el.innerHTML = emptyHtml('Could not read storage: ' + esc(e.message)); }); return;
       default: html = viewHead('Intelligence Feed') + renderFeed(list);
     }
@@ -477,7 +479,7 @@
     if (!hasSeed || S.settings.bannerDismissed || !VIEWS[S.view].filters) { b.hidden = true; return; }
     b.hidden = false;
     b.className = 'banner slim';
-    b.innerHTML = '<div><strong>Seed data:</strong> <span class="badge seed">SEED</span> records are illustrative, not official bulletins. Verify against AVEVA / CISA. <a href="#/storage">Delete seed records</a></div>' +
+    b.innerHTML = '<div><strong>Seed data:</strong> <span class="badge seed">SEED</span> records are illustrative, not official bulletins. Verify against AVEVA / CISA. <a href="#/storage">Delete seed records</a> · First time here? <button type="button" class="link-btn" data-action="start-tour">Start 1-minute Interactive Tour</button></div>' +
       '<button class="icon-btn" data-action="dismiss-banner" aria-label="Dismiss"><svg class="i"><use href="#i-x"/></svg></button>';
   }
 
@@ -981,6 +983,175 @@
     return after;
   }
 
+  /* ------------------------------ guide, tour & tooltips ------------------------------ */
+
+  // localStorage is a per-browser convenience here; it can throw or come back empty (private windows), so the
+  // tour simply falls back to an in-memory flag for the session.
+  const memLS = {};
+  const LS = {
+    get(k) { try { return window.localStorage.getItem(k); } catch (_) { return memLS[k] === undefined ? null : memLS[k]; } },
+    set(k, v) { try { window.localStorage.setItem(k, v); } catch (_) { memLS[k] = v; } }
+  };
+  const TOUR_KEY = 'wtp_tour_seen';
+
+  const TOUR_STEPS = [
+    {
+      title: 'Step 1: Monitor & Triage',
+      text: 'Browse filtered advisories by component (System Platform, InTouch, Historian). Check severity badges, reboot requirements, and downtime estimates.',
+      demo: '<span class="badge sev-critical">CRITICAL</span> <span class="badge comp">System Platform</span> <span class="rb rb-yes">Reboot: Yes</span> <span class="sitepill">DWTC DCP</span> <span class="small">45 mins</span>',
+      go: 'Open the Intel Feed', hash: '#/feed'
+    },
+    {
+      title: 'Step 2: Inspect Details',
+      text: 'Click any table row or card to open the Slide-over Drawer for full mitigation notes, vendor links, and the local SHA-256 file checksum validator (on patch records).',
+      demo: '<span class="demo-row">Table row</span><span class="demo-arrow">→</span><span class="demo-drawer"><b>Drawer</b><span>Mitigation notes</span><span>Vendor link</span><span>SHA-256 check</span></span>',
+      go: 'Open the Patch Matrix', hash: '#/matrix'
+    },
+    {
+      title: 'Step 3: Plan Plant Maintenance',
+      text: "Click '+ Plan' on any critical patch to queue it for your site's next maintenance window. Your selections stay on this device and work offline: flagged items are never auto-deleted.",
+      demo: '<span class="btn act">+ Plan</span><span class="demo-arrow">→</span><span class="btn act on">In plan</span>',
+      go: 'Go to Critical Advisories', hash: '#/critical'
+    },
+    {
+      title: 'Step 4: Generate Work Orders',
+      text: "Open 'Shutdown Plan' in the sidebar to review assigned nodes and export ready-to-sign CSV or printable work orders for your maintenance team.",
+      demo: '<span class="demo-row">Shutdown Plan</span><span class="demo-arrow">→</span><span class="btn act">Work order (PDF)</span><span class="btn act">CSV</span>',
+      go: 'Open the Shutdown Plan', hash: '#/flagged'
+    }
+  ];
+  const tour = { step: 0, opener: null };
+
+  function renderTourStep() {
+    const s = TOUR_STEPS[tour.step];
+    const last = tour.step === TOUR_STEPS.length - 1;
+    $('#tourStep').innerHTML = '<h3 id="tourStepTitle">' + esc(s.title) + '</h3><p>' + esc(s.text) + '</p>' +
+      '<div class="tour-demo" aria-hidden="true">' + s.demo + '</div>' +
+      '<button type="button" class="btn tour-go" data-action="tour-go" data-hash="' + esc(s.hash) + '">' + esc(s.go) + ' <span aria-hidden="true">→</span></button>';
+    $('#tourCount').textContent = 'Step ' + (tour.step + 1) + ' of ' + TOUR_STEPS.length;
+    $('#tourDots').innerHTML = TOUR_STEPS.map((_, i) => '<li class="' + (i === tour.step ? 'on' : (i < tour.step ? 'done' : '')) + '"></li>').join('');
+    const back = $('#tourBack'), next = $('#tourNext'), start = $('#tourStart');
+    const hadFocus = document.activeElement;
+    back.disabled = tour.step === 0;
+    next.hidden = last;
+    start.classList.toggle('btn-accent', last);
+    // Keep keyboard focus on a control that still exists after the step changes.
+    if (hadFocus === back && back.disabled) next.focus();
+    else if (hadFocus === next && next.hidden) start.focus();
+  }
+
+  function openTour() {
+    const dlg = $('#tourDlg');
+    if (dlg.open) return;
+    tour.step = 0;
+    tour.opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    $('#tourDontShow').checked = true;
+    renderTourStep();
+    dlg.showModal();
+    $('#tourNext').focus();
+  }
+
+  function tourMove(delta) {
+    const n = Math.max(0, Math.min(TOUR_STEPS.length - 1, tour.step + delta));
+    if (n === tour.step) return;
+    tour.step = n;
+    renderTourStep();
+  }
+
+  function initTour() {
+    const dlg = $('#tourDlg');
+    dlg.addEventListener('close', () => {
+      // Only a ticked box silences the automatic tour; unticking keeps it coming back on launch.
+      LS.set(TOUR_KEY, $('#tourDontShow').checked ? '1' : '0');
+      const o = tour.opener; tour.opener = null;
+      if (o && document.contains(o) && o.focus) o.focus({ preventScroll: true }); else $('#view').focus({ preventScroll: true });
+    });
+    dlg.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        // Explicit focus trap: Tab / Shift+Tab cycle inside the tour.
+        const f = $$('button, input, a[href], select, textarea, [tabindex]:not([tabindex="-1"])', dlg).filter((el) => !el.disabled && !el.hidden && el.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !dlg.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !dlg.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      } else if (e.key === 'Enter' && !e.target.closest('button, a, input, select, textarea')) {
+        // Enter advances when focus is on the dialog body itself; on a button it activates that button natively.
+        e.preventDefault();
+        if (tour.step < TOUR_STEPS.length - 1) tourMove(1); else dlg.close();
+      }
+    });
+    // First launch: show the tour once, unless the app was opened from a shortcut / file / share / protocol link.
+    if (!/[?&](view|action|protocol|source|share_url)=/.test(window.__wtpLaunchSearch || '') && LS.get(TOUR_KEY) !== '1') {
+      setTimeout(() => { if (!document.querySelector('dialog[open]')) openTour(); }, 400);
+    }
+  }
+
+  /* Tooltips: one fixed-position element so tables with horizontal scroll never clip it. Shown on hover and keyboard
+     focus, stays while the pointer is over it, dismissed with Escape (WCAG 1.4.13). */
+  function initTooltips() {
+    const tip = document.createElement('div');
+    tip.id = 'wtpTip'; tip.setAttribute('role', 'tooltip'); tip.hidden = true;
+    document.body.appendChild(tip);
+    let cur = null, timer = null;
+    const hide = () => { clearTimeout(timer); if (cur) cur.removeAttribute('aria-describedby'); cur = null; tip.hidden = true; };
+    const show = (el) => {
+      clearTimeout(timer);
+      if (cur === el) return;
+      if (cur) cur.removeAttribute('aria-describedby');
+      cur = el; tip.textContent = el.dataset.tip; tip.hidden = false;
+      el.setAttribute('aria-describedby', 'wtpTip');
+      const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+      let left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+      let top = r.top - h - 4;
+      if (top < 8) top = r.bottom + 4;
+      tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    };
+    const later = () => { clearTimeout(timer); timer = setTimeout(hide, 180); };
+    document.addEventListener('mouseover', (e) => {
+      if (e.target.closest('#wtpTip')) { clearTimeout(timer); return; }
+      const el = e.target.closest('[data-tip]');
+      if (el) show(el); else if (cur) later();
+    });
+    document.addEventListener('focusin', (e) => { const el = e.target.closest && e.target.closest('[data-tip]'); if (el && el.matches(':focus-visible')) show(el); else hide(); });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && cur) hide(); }, true);
+    window.addEventListener('scroll', hide, true);
+    document.addEventListener('click', (e) => { if (!e.target.closest('#wtpTip')) hide(); }, true);
+  }
+
+  function renderGuide() {
+    const steps = TOUR_STEPS.map((s, i) => '<li class="guide-step"><span class="guide-num" aria-hidden="true">' + (i + 1) + '</span><div><h3>' + esc(s.title.replace(/^Step \d+: /, '')) + '</h3><p>' + esc(s.text) + '</p><a class="btn" href="' + esc(s.hash) + '">' + esc(s.go) + '</a></div></li>').join('');
+    const legend = [
+      ['<span class="btn act">Review</span>', 'Marks a record as reviewed by your team. Unreviewed critical items are counted on the app icon (where the browser supports badges) and in the sidebar.'],
+      ['<span class="btn act">+ Plan</span>', 'Adds the record to the Shutdown Plan. It becomes <b>In plan</b>; click again to remove it.'],
+      [sevBadge('critical') + ' ' + sevBadge('high') + ' ' + sevBadge('medium') + ' ' + sevBadge('low') + ' ' + sevBadge('info'), 'Severity, from the source where it is stated (for example a CVSS score) or estimated by keyword when importing feeds. Always confirm in the vendor bulletin.'],
+      ['<span class="rb rb-yes">Reboot: Yes</span> <span class="rb rb-service">Service only</span> <span class="rb rb-no">Reboot: No</span>', 'Whether applying the item needs a node restart, a service restart only, or neither. Seed values are examples; the vendor KB decides, and you can set your own per record.'],
+      ['<span class="sitepill">DWTC DCP</span>', 'The plant or client site you assign the work to. Filter the list by site with <b>Client site</b>.'],
+      [badge('seed', 'SEED'), 'Illustrative demo record, not an official bulletin. Remove them under Storage &amp; Sync once you have real data.']
+    ].map(([a, b]) => '<tr><td>' + a + '</td><td>' + b + '</td></tr>').join('');
+    const kbd = [['/', 'Focus the search box'], ['Tab', 'Move between rows and buttons'], ['Enter / Space', 'Open the highlighted row in the drawer'], ['Esc', 'Close the drawer, a dialog or this tour']]
+      .map(([k, d]) => '<li><kbd>' + k + '</kbd> ' + d + '</li>').join('');
+    return viewHead('User Guide & Quickstart', '<button class="btn btn-accent" data-action="open-tour"><svg class="i" aria-hidden="true"><use href="#i-help"/></svg>Start 1-minute interactive tour</button>') +
+      '<div class="panel guide-intro"><h2>Why this app exists</h2>' +
+      '<p>SCADA engineers keep AVEVA / Wonderware System Platform, InTouch, Historian, Application Server, OI / DA drivers and their SQL Server databases patched, while vendor bulletins, CISA ICS advisories and tech notes are scattered across websites, and plant networks are often isolated or slow.</p>' +
+      '<p><strong>WonderTech Pulse</strong> collects them into one searchable list that lives on your device (no login, works offline), lets you triage what matters, and turns the items you choose into a shutdown work order your maintenance team can sign.</p></div>' +
+      '<div class="panel"><h2>Quickstart: four steps</h2><ol class="guide-steps">' + steps + '</ol></div>' +
+      '<div class="panel"><h2>What the buttons and badges mean</h2><div class="table-wrap" style="margin:0"><table class="legend"><caption class="sr-only">Legend</caption><thead><tr><th scope="col">Looks like</th><th scope="col">Meaning</th></tr></thead><tbody>' + legend + '</tbody></table></div></div>' +
+      '<div class="panel-grid"><div class="panel"><h2>Keyboard</h2><ul class="guide-list">' + kbd + '</ul></div>' +
+      '<div class="panel"><h2>Your data &amp; working offline</h2><ul class="guide-list">' +
+      '<li>Everything is stored in this browser (IndexedDB). Nothing is uploaded except the feeds you add.</li>' +
+      '<li>After the first load the app and your records work with no network. Install it from the browser for an app-like window.</li>' +
+      '<li>Flagged items, notes and planning fields are never auto-deleted. Other articles are pruned after 3 years by default.</li>' +
+      '<li>Export a backup from <a href="#/storage">Storage &amp; Sync</a> regularly: clearing browser data erases the archive.</li></ul></div></div>' +
+      '<div class="panel"><h2>Common questions</h2>' +
+      '<details><summary>Why do I only see demo records?</summary><p>The built-in records are illustrative. Add a feed or import a vendor / CISA export under <a href="#/sources">Sources &amp; Import</a>, then delete the seed records in <a href="#/storage">Storage &amp; Sync</a>.</p></details>' +
+      '<details><summary>Why does the CISA feed say a CORS proxy is required?</summary><p>Browsers block pages from reading most websites directly. Set a proxy you control in Sources &amp; Import, press <b>Try direct fetch</b>, or download the feed and import the file.</p></details>' +
+      '<details><summary>How do I check a downloaded hotfix?</summary><p>Open a patch record, paste the SHA-256 published by the vendor, choose the downloaded file and compare. The file is hashed on your device and never uploaded.</p></details>' +
+      '<details><summary>Can I trust the reboot and downtime values?</summary><p>Treat them as your own planning notes. Seed values are examples; confirm every restart requirement in the vendor documentation and test on a non-production galaxy.</p></details>' +
+      '<details><summary>How do I get a work order for the maintenance team?</summary><p>Flag items with <b>+ Plan</b>, fill in node, site and downtime in the drawer, open <a href="#/flagged">Shutdown Plan</a> and choose <b>Export shutdown report</b> (printable work order, CSV, text or JSON).</p></details></div>' +
+      '<p class="muted small">WonderTech Pulse is an aid for organising information. It is not a vendor source: verify advisories and patch applicability against official AVEVA and CISA publications before changing a production system.</p>';
+  }
+
   /* ------------------------------ event wiring ------------------------------ */
 
   const actions = {
@@ -1021,6 +1192,13 @@
     },
     'add-feed': () => openFeedDialog(),
     'goto-critical': () => { location.hash = '#/critical'; },
+    'open-tour': () => openTour(),
+    'start-tour': () => openTour(),
+    'tour-next': () => tourMove(1),
+    'tour-back': () => tourMove(-1),
+    'tour-skip': () => $('#tourDlg').close(),
+    'tour-close': () => $('#tourDlg').close(),
+    'tour-go': (el) => { tour.opener = null; const h = el.dataset.hash; $('#tourDlg').close(); location.hash = h; },
     'clear-search': () => { S.f.q = ''; $('#q').value = ''; render(); },
     'open-notes': async (el) => { await openDetail(el.dataset.id); const n = $('#detailNote'); if (n) n.focus(); },
     'unflag': async (el) => {
@@ -1177,10 +1355,13 @@
       return;
     }
 
+    window.__wtpLaunchSearch = location.search;
     const after = handleLaunchParams();
     await refresh();
     if (after) after();
     initLaunchQueue();
+    initTooltips();
+    initTour();
 
     refreshStorageStatus();
     DB.requestPersistence().then(refreshStorageStatus);

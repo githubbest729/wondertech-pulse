@@ -1,97 +1,20 @@
 # WonderTech Pulse
-# WonderTech Pulse
-
-<p align="center">
-  <img src="favicon.svg" alt="WonderTech Pulse Logo" width="80" height="80" />
-</p>
-
-<p align="center">
-  <strong>Mission-Critical SCADA Intelligence, Patch-Matrix & Shutdown Planning Aggregator</strong><br />
-  <em>Offline-First Progressive Web Application for Control Room Operations & Field Workstations</em>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Progressive_Web_App-0EA5E9?style=for-the-badge&logo=pwa" alt="PWA" />
-  <img src="https://img.shields.io/badge/SCADA-AVEVA_%2F_Wonderware-1E293B?style=for-the-badge&logo=scada" alt="SCADA" />
-  <img src="https://img.shields.io/badge/Standards-WCAG_2.2_AA-059669?style=for-the-badge" alt="WCAG AA" />
-  <img src="https://img.shields.io/badge/Storage-Persistent_IndexedDB_(3--Year)-F59E0B?style=for-the-badge" alt="Storage" />
-  <img src="https://img.shields.io/badge/Security-CISA_ICS--CERT-DC2626?style=for-the-badge" alt="Security" />
-</p>
-
----
-
-## 🏢 Operational Deployment Context
-
-| Attribute | Specification |
-| :--- | :--- |
-| **Organization** | (AGAC) |
-| **Operational Division** | SCADA Engineering & Infrastructure Commissioning |
-| **Location** | Dubai, United Arab Emirates |
-| **Target Field Devices** | Panasonic Toughbook, Getac Rugged Field Tablets, Control Desk Dual-Monitor Consoles, iPad Pro (Field Service) |
-| **Ecosystem Coverage** | AVEVA System Platform, InTouch HMI / OMI, Historian Server, Application Server, OI / DA Communication Drivers, Citect SCADA |
-
-> ⚠️ **Seed Data Operational Notice:** Built-in seed records marked `SEED` are illustrative engineering models designed to demonstrate schema functionality. They do not constitute certified vendor advisories. In production, SCADA engineers must ingest live feeds via verified sources and validate all remediation strategies against AVEVA Security Central and CISA ICS-CERT advisories prior to executing downtime operations.
-
-
-## 🏗️ System Architecture & Data Flow
-
-
-```mermaid
-flowchart TB
-    subgraph INGESTION["1. Ingestion & Feed Engine"]
-        A1["AVEVA Security Central (RSS / XML)"]
-        A2["CISA ICS-CERT Advisories"]
-        A3["Vendor Patches & Tech Notes (.CSV / .JSON)"]
-        A4["Manual Engineering Imports (.XML / .JSON)"]
-    end
-
-    subgraph CLIENT["2. Client Runtime (Offline-First PWA Shell)"]
-        B1["Service Worker (sw.js)<br/>Cache-First App Shell | Static Routing"]
-        B2["Navigation & View Router (app.js)<br/>WCO | Badging API | Deep Linking"]
-        B3["Auto-Classifier Engine<br/>Regex: Component | Severity | Reboot"]
-        B4["Local Cryptographic Engine<br/>SubtleCrypto: Client-Side SHA-256 Verifier"]
-    end
-
-    subgraph STORAGE["3. Persistent Storage Engine (IndexedDB)"]
-        C1[("articles_feed<br/>(Transient - 3-Yr Retention)")]
-        C2[("patch_notes<br/>(Permanent Repository)")]
-        C3[("cisa_advisories<br/>(Permanent Registry)")]
-        C4[("bookmarks_and_read<br/>(Shutdown Plan & Notes)")]
-        C5[("sync_audit_log<br/>(Compliance Audit Trail)")]
-    end
-
-    subgraph PRESENTATION["4. Operations & Execution"]
-        D1["Intel Feed & Patch Matrix<br/>Compact List / Card Grid"]
-        D2["Detail Slide-Over Drawer<br/>Downtime | Node | Rollback"]
-        D3["Shutdown Plan Work Order<br/>ISO 9001 Sign-off Schedule"]
-        D4["Multi-Format Exporters<br/>Excel (BOM Protected) | PDF | JSON"]
-    end
-
-    A1 --> B1
-    A2 --> B1
-    A3 --> B1
-    A4 --> B2
-    B1 --> B2
-    B2 --> B3
-    B3 --> C1
-    B3 --> C2
-    B3 --> C3
-    C4 <--> B2
-    C5 <--> B2
-    B2 --> D1
-    D1 --> D2
-    D2 --> D3
-    D3 --> D4
-    D2 --> B4
-```
 
 Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
 
-Prepared for: SCADA Engineering
+Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.).
 
 > **Seed data notice.** The built-in records are *illustrative* examples that demonstrate the data model. They are badged `SEED` and are **not** official bulletins; CVE IDs use the placeholder form `CVE-SEED-000x`, and checksums are intentionally blank. Add real feeds / import vendor data, then remove the seed records under **Storage & Sync → Delete seed records**. Always verify advisories and patch applicability against AVEVA Security Central, AVEVA Software Support and CISA before changing a production system.
 
 ---
+
+## What's new in v1.4
+
+- **Guide button and page:** a **Guide** button (`aria-label="Open application user guide and interactive tour"`) sits beside the search box, and **User Guide & Quickstart** is the last sidebar link (`#/guide`). The page explains why the app exists, the four-step quickstart with shortcuts to each view, what every button and badge means, keyboard shortcuts, how your data and offline mode work, and a short FAQ.
+- **Interactive tour:** a four-step modal (Monitor & Triage, Inspect Details, Plan Plant Maintenance, Generate Work Orders) with Back / Next / Skip, **Start Exploring**, step demos and "go there" shortcuts. It traps Tab inside the dialog, **Enter** advances (a focused button still activates normally), **Esc** closes, and focus returns to what opened it. The page behind it is inert.
+- **First visit:** the tour opens automatically once, unless the app was launched from a shortcut, file or share link. The box *Don't show this automatically on launch* is ticked by default and is remembered in `localStorage` key `wtp_tour_seen` (`1` = hide, `0` = keep showing). If `localStorage` is blocked, it falls back to the current session only. The seed-data banner also links to the tour.
+- **Tooltips:** hover or keyboard-focus tips on **Review**, **+ Plan** and **Export report**. They never clip inside scrolling tables, stay open while the pointer is over them, and **Esc** dismisses them.
+- Offline stores, service-worker caching (cache version `1.4.0`) and all table / plan refinements are unchanged. axe-core reports 0 WCAG 2.2 AA violations on the tour (desktop and 390 px mobile), guide page and feed.
 
 ## What's new in v1.3
 
