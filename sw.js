@@ -10,7 +10,7 @@
  */
 'use strict';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const SHELL_CACHE = 'wtp-shell-v' + VERSION;
 const FEED_CACHE = 'wtp-feeds-v' + VERSION;
 const FEED_CACHE_MAX = 60;

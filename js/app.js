@@ -44,12 +44,33 @@
     guide: { title: 'User Guide & Quickstart', filters: false }
   };
 
+  const CHIP_VIEWS = { feed: true, matrix: true };
+  const CHIP_SITE = { dwtc: 'dwtc', fuj: 'fujairah' };
+  const CHIPS = [['crit', '🔴', 'Critical Only'], ['reboot', '⚡', 'Requires Reboot'], ['dwtc', '🏢', 'DWTC Plant'], ['fuj', '⚓', 'Fujairah']];
+  const BANNER_KEY = 'wtp_banner_dismissed';
+  const MATRIX_COLLAPSE_KEY = 'wtp_matrix_collapsed';
+
+  // Plain-English display for status text saved by earlier versions (feed status is stored in IndexedDB).
+  const PROXY_NOTICE = 'ℹ Offline Seed Mode: Live CISA feeds require an intranet proxy. You can use manual import or browse cached plant bulletins below.';
+  function plain(s) {
+    let t = String(s == null ? '' : s);
+    if (/cors proxy required/i.test(t)) return PROXY_NOTICE;
+    return t.replace(/Network or CORS error[^.]*$/i, 'Could not reach this source from the browser — set an intranet proxy or import the file manually')
+      .replace(/Waiting for CORS proxy/gi, 'Offline Seed Mode')
+      .replace(/CORS proxy/gi, 'intranet proxy')
+      .replace(/Cross-Origin/gi, 'browser access')
+      .replace(/CORS/g, 'browser access')
+      .replace(/No <item> or <entry> elements found in XML/g, 'No bulletins found in this file')
+      .replace(/Input is neither XML nor valid JSON/g, 'This content is not a recognised bulletin feed or report')
+      .replace(/XML parse (failure|error)/gi, 'This file could not be read');
+  }
+
   /* -------------------------------- state -------------------------------- */
 
   const S = {
     items: [], states: {}, feeds: [], settings: {}, lastSync: null,
     view: 'feed', selectedId: null,
-    f: { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc' },
+    f: { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc', chips: { crit: false, reboot: false, site: '' } },
     hay: new Map(), syncing: false, storage: null, swReady: false, dialogItemId: null
   };
 
@@ -115,7 +136,12 @@
       ? Object.assign({}, S.f, { component: '', category: '', severity: '', site: '', status: 'all', sort: 'date-desc' })
       : S.f;
     const terms = f.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    // Quick-filter chips only exist on Intel Feed and Patch Matrix, so they must not silently filter any other view.
+    const chips = CHIP_VIEWS[view] ? S.f.chips : {};
     const out = list.filter((it) => {
+      if (chips.crit && !isCritical(it)) return false;
+      if (chips.reboot && rebootOf(it) !== 'yes') return false;
+      if (chips.site && pf(it, 'site').toLowerCase().indexOf(CHIP_SITE[chips.site]) === -1) return false;
       if (f.component && it.component !== f.component) return false;
       if (f.category && it.category !== f.category) return false;
       if (f.severity && it.severity !== f.severity) return false;
@@ -236,8 +262,16 @@
     return '<div class="view-head"><h1>' + esc(title) + '</h1><span class="spacer"></span>' + (extra || '') + '</div>';
   }
 
+  /* One-touch quick filters (Intel Feed + Patch Matrix). Always rendered, even with zero results, so they can be switched off. */
+  function chipOn(k) { const c = S.f.chips; return k === 'dwtc' || k === 'fuj' ? c.site === k : !!c[k]; }
+  function chipsHtml() {
+    return '<div class="chip-row" role="group" aria-label="Quick filters">' + CHIPS.map(([k, emoji, label]) =>
+      '<button type="button" class="qchip' + (chipOn(k) ? ' on' : '') + '" data-action="chip" data-chip="' + k + '" aria-pressed="' + chipOn(k) + '">' +
+      '<span aria-hidden="true">' + emoji + '</span> ' + esc(label) + '</button>').join('') + '</div>';
+  }
+
   function renderFeed(list) {
-    return statsHtml() + (list.length ? itemsHtml(list) : emptyHtml('No records match the current filters.'));
+    return statsHtml() + chipsHtml() + (list.length ? itemsHtml(list) : emptyHtml('No records match the current filters.'));
   }
 
   function renderCritical(list) {
@@ -247,26 +281,79 @@
     return head + intro + (list.length ? itemsHtml(list) : emptyHtml('No critical advisories match the current filters.'));
   }
 
+  function vpills(arr, max) {
+    const list = (arr || []).slice(0, max || 4);
+    if (!list.length) return '<span class="muted">—</span>';
+    return list.map((v) => '<span class="vpill">' + esc(v) + '</span>').join('') + ((arr || []).length > list.length ? '<span class="vpill vmore">+' + ((arr || []).length - list.length) + '</span>' : '');
+  }
+
+  // Which component sections are collapsed (remembered per device; wrapped storage so it never throws).
+  function collapsedComps() {
+    if (!S.collapsed) {
+      let arr = [];
+      try { arr = JSON.parse(LS.get(MATRIX_COLLAPSE_KEY) || '[]'); } catch (_) { arr = []; }
+      S.collapsed = new Set(Array.isArray(arr) ? arr : []);
+    }
+    return S.collapsed;
+  }
+  function saveCollapsed() { LS.set(MATRIX_COLLAPSE_KEY, JSON.stringify(Array.from(collapsedComps()))); }
+
+  /* Compatibility Quick-Check. The cell values are an illustrative planning reference (not vendor data); the Status column
+     is live: a component also needs a hotfix while an unreviewed critical/high 2023 R2 patch record exists for it. */
+  const COMPAT = [
+    { name: 'System Platform 2023 R2', comp: 'System Platform', cells: ['ok', 'ok', 'ok'] },
+    { name: 'InTouch 2023 R2', comp: 'InTouch', cells: ['ok', 'ok', 'hotfix'] },
+    { name: 'Historian 2023 R2', comp: 'Historian', cells: ['ok', 'hotfix', 'ok'] }
+  ];
+  const COMPAT_COLS = ['Win 11 / Server 2022', 'SQL Server 2022', 'OPC UA V1.05'];
+  function compatCell(state) {
+    return state === 'ok' ? '<span class="cc cc-ok">✔ Supported</span>' : '<span class="cc cc-warn">⚠ Requires Hotfix</span>';
+  }
+  function compatHtml() {
+    const rows = COMPAT.map((r) => {
+      const pending = S.items.filter((p) => p.kind === 'patch' && p.component === r.comp && (p.severity === 'critical' || p.severity === 'high') &&
+        (p.versions || []).some((v) => /2023 R2/.test(v)) && !st(p.id).read).length;
+      const needs = r.cells.indexOf('hotfix') !== -1 || pending > 0;
+      return '<tr><th scope="row">' + esc(r.name) + '</th>' + r.cells.map((c) => '<td>' + compatCell(c) + '</td>').join('') +
+        '<td>' + compatCell(needs ? 'hotfix' : 'ok') + (pending ? '<div class="muted small">' + pending + ' unreviewed patch' + (pending === 1 ? '' : 'es') + '</div>' : '') + '</td></tr>';
+    }).join('');
+    return '<section class="compat" aria-labelledby="compatTitle"><h2 id="compatTitle">Compatibility Quick-Check</h2>' +
+      '<div class="table-wrap mx-wrap" tabindex="0" role="region" aria-label="Compatibility Quick-Check table (scrolls sideways)"><table class="compat-table"><caption class="sr-only">Supported operating system and dependency levels per component</caption>' +
+      '<thead><tr><th scope="col">Component</th>' + COMPAT_COLS.map((c) => '<th scope="col">' + esc(c) + '</th>').join('') + '<th scope="col">Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="muted small compat-note">Illustrative planning reference. Confirm every cell against the official AVEVA technology matrix before scheduling a shutdown.</p></section>';
+  }
+
   function renderMatrix(list) {
-    if (!list.length) return viewHead('Patch Matrix') + emptyHtml('No patch or release records match the current filters.');
-    let html = viewHead('Patch Matrix') + '<p class="muted" style="margin:0 0 4px">Releases, hotfixes and driver updates grouped by Wonderware component. Use the star to flag items for the next maintenance shutdown.</p>';
-    FEEDS.COMPONENTS.forEach((comp) => {
+    const intro = '<p class="muted" style="margin:0 0 12px">Releases, hotfixes and driver updates grouped by Wonderware component. Use + Plan to flag items for the next maintenance shutdown.</p>';
+    let html = viewHead('Patch Matrix') + intro + compatHtml() + chipsHtml();
+    if (!list.length) return html + emptyHtml('No patch or release records match the current filters.');
+    const collapsedSet = collapsedComps();
+    const allNames = FEEDS.COMPONENTS.filter((c) => list.some((p) => p.component === c));
+    html += '<div class="acc-tools"><button type="button" class="btn" data-action="acc-all" data-mode="expand">Expand all</button>' +
+      '<button type="button" class="btn" data-action="acc-all" data-mode="collapse">Collapse all</button>' +
+      '<span class="muted small">' + allNames.length + ' component' + (allNames.length === 1 ? '' : 's') + '</span></div>';
+    FEEDS.COMPONENTS.forEach((comp, ci) => {
       const rows = list.filter((p) => p.component === comp);
       if (!rows.length) return;
-      html += '<h2 class="group-title">' + esc(comp) + badge('', rows.length + (rows.length === 1 ? ' release' : ' releases')) + '</h2>' +
-        '<div class="table-wrap"><table><thead><tr><th>Release / hotfix</th><th>Type</th><th>Impacted versions</th><th>Fixed in</th><th>KB / tech note</th><th>Severity</th><th>Reboot</th><th>Rollback</th><th>Site</th><th>Date</th><th></th></tr></thead><tbody>' +
-        rows.map((p) => '<tr' + rowAttrs(p) + '>' +
+      const collapsed = collapsedSet.has(comp);
+      const n = rows.length + (rows.length === 1 ? ' update' : ' updates');
+      html += '<section class="acc' + (collapsed ? ' collapsed' : '') + '" data-comp="' + esc(comp) + '">' +
+        '<h2 class="acc-h"><button type="button" class="acc-btn" data-action="acc-toggle" data-comp="' + esc(comp) + '" aria-expanded="' + (!collapsed) + '" aria-controls="acc-' + ci + '">' +
+        '<span class="acc-name">' + esc(comp) + '</span><span class="badge acc-count">' + n + '</span><span class="acc-arrow" aria-hidden="true">' + (collapsed ? '▼' : '▲') + '</span></button></h2>' +
+        '<div class="acc-body" id="acc-' + ci + '"' + (collapsed ? ' hidden' : '') + '>' +
+        '<div class="table-wrap mx-wrap" tabindex="0" role="region" aria-label="' + esc(comp) + ' updates table (scrolls sideways)"><table class="matrix-table"><thead><tr><th scope="col">Release / hotfix</th><th scope="col">Type</th><th scope="col">Impacted versions</th><th scope="col">Fixed in</th><th scope="col">KB / tech note</th><th scope="col">Severity</th><th scope="col">Reboot</th><th scope="col">Rollback</th><th scope="col">Site</th><th scope="col">Date</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+        rows.map((p) => '<tr class="mx-row sev-' + esc(p.severity) + (st(p.id).read ? '' : ' unread') + '"' + rowAttrs(p) + '>' +
           '<td><strong>' + esc(p.title) + '</strong>' + (p.seed ? ' ' + badge('seed', 'SEED') : '') + (st(p.id).read ? '' : ' <span class="warn" title="Unreviewed">●</span>') + '</td>' +
           '<td>' + esc(p.releaseType || p.category) + '</td>' +
-          '<td>' + versionChips(p.versions, 4) + '</td>' +
-          '<td>' + esc(p.fixedIn || '—') + '</td>' +
+          '<td>' + vpills(p.versions, 4) + '</td>' +
+          '<td>' + (p.fixedIn ? '<span class="vpill vfix">' + esc(p.fixedIn) + '</span>' : '<span class="muted">—</span>') + '</td>' +
           '<td class="mono small">' + esc(p.kb || '—') + '</td>' +
           '<td>' + sevBadge(p.severity) + '</td>' +
           '<td class="small">' + rebootPill(p) + '</td><td class="small">' + pill(ROLLBACK, rollbackOf(p)) + '</td>' +
           '<td class="small">' + sitePill(p) + '</td>' +
           '<td class="small">' + fmtDate(p.timestamp) + '</td>' +
           '<td><span class="act-row">' + starBtn(p) + '</span></td></tr>').join('') +
-        '</tbody></table></div>';
+        '</tbody></table></div></div></section>';
     });
     const other = list.filter((p) => FEEDS.COMPONENTS.indexOf(p.component) === -1);
     if (other.length) html += '<h2 class="group-title">Other</h2><div class="cards">' + other.map(cardHtml).join('') + '</div>';
@@ -354,7 +441,7 @@
     const feedRows = S.feeds.length ? S.feeds.map((f) =>
       '<tr style="cursor:default"><td><strong>' + esc(f.name) + '</strong><div class="muted small mono" style="word-break:break-all">' + esc(f.url) + '</div>' + (f.filter ? '<div class="muted small">Filter: ' + esc(f.filter) + '</div>' : '') + '</td>' +
       '<td>' + esc(f.component || 'Auto') + '</td>' +
-      '<td class="small">' + (f.lastError ? '<span class="bad">' + esc(f.lastStatus) + ' — ' + esc(f.lastError) + '</span>' : (f.lastInfo ? '<span class="infochip">ⓘ ' + esc(f.lastInfo) + '</span>' : esc(f.lastStatus || '—'))) + (f.needsProxy ? '<div style="margin-top:6px"><button class="btn" data-action="try-direct" data-id="' + esc(f.id) + '">Try direct fetch</button></div>' : '') + '<div class="muted">' + esc(ago(f.lastSync || f.lastTry)) + '</div></td>' +
+      '<td class="small">' + (f.lastError ? '<span class="bad">' + esc(plain(f.lastStatus)) + ' — ' + esc(plain(f.lastError)) + '</span>' : (f.lastInfo ? '<span class="infochip">' + esc(plain(f.lastInfo)) + '</span>' : esc(plain(f.lastStatus || '—')))) + (f.needsProxy ? '<div style="margin-top:6px"><button class="btn" data-action="try-direct" data-id="' + esc(f.id) + '">Try direct fetch</button></div>' : '') + '<div class="muted">' + esc(ago(f.lastSync || f.lastTry)) + '</div></td>' +
       '<td><label class="row" style="gap:6px"><input type="checkbox" data-feed-toggle="' + esc(f.id) + '"' + (f.enabled === false ? '' : ' checked') + '> on</label></td>' +
       '<td><button class="btn btn-danger" data-action="delete-feed" data-id="' + esc(f.id) + '">Remove</button></td></tr>').join('') :
       '<tr style="cursor:default"><td colspan="5" class="muted">No custom feeds yet. Add an RSS, Atom or JSON Feed URL, or import a file below.</td></tr>';
@@ -369,7 +456,7 @@
       '<label class="field">…or paste content<textarea id="importText" rows="5" placeholder="&lt;rss&gt;…  or  { &quot;items&quot;: [...] }"></textarea></label>' +
       '<div class="row"><button class="btn btn-accent" data-action="import-text">Import pasted content</button></div></div>' +
       '<div class="panel"><h2>Settings</h2>' +
-      '<label class="field">CORS proxy prefix (optional)<input type="url" id="setProxy" placeholder="https://your-proxy.example/?url=" value="' + esc(S.settings.corsProxy || '') + '"></label>' +
+      '<label class="field">Intranet proxy address (optional)<input type="url" id="setProxy" placeholder="https://your-proxy.example/?url=" value="' + esc(S.settings.corsProxy || '') + '"></label>' +
       '<label class="field">Archive retention for transient articles (days)<input type="number" id="setRetention" min="30" max="3650" value="' + esc(S.settings.retentionDays) + '"></label>' +
       '<label class="field">Assumed new records per day (capacity projection)<input type="number" id="setRate" min="1" max="5000" value="' + esc(S.settings.assumedNewRecordsPerDay) + '"></label>' +
       '<div class="row"><button class="btn btn-accent" data-action="save-settings">Save settings</button></div></div></div>' +
@@ -476,7 +563,7 @@
   function renderBanner() {
     const b = $('#banner');
     const hasSeed = S.items.some((i) => i.seed);
-    if (!hasSeed || S.settings.bannerDismissed || !VIEWS[S.view].filters) { b.hidden = true; return; }
+    if (!hasSeed || LS.get(BANNER_KEY) === 'true' || S.settings.bannerDismissed || !VIEWS[S.view].filters) { b.hidden = true; return; }
     b.hidden = false;
     b.className = 'banner slim';
     b.innerHTML = '<div><strong>Seed data:</strong> <span class="badge seed">SEED</span> records are illustrative, not official bulletins. Verify against AVEVA / CISA. <a href="#/storage">Delete seed records</a> · First time here? <button type="button" class="link-btn" data-action="start-tour">Start 1-minute Interactive Tour</button></div>' +
@@ -1145,7 +1232,7 @@
       '<li>Export a backup from <a href="#/storage">Storage &amp; Sync</a> regularly: clearing browser data erases the archive.</li></ul></div></div>' +
       '<div class="panel"><h2>Common questions</h2>' +
       '<details><summary>Why do I only see demo records?</summary><p>The built-in records are illustrative. Add a feed or import a vendor / CISA export under <a href="#/sources">Sources &amp; Import</a>, then delete the seed records in <a href="#/storage">Storage &amp; Sync</a>.</p></details>' +
-      '<details><summary>Why does the CISA feed say a CORS proxy is required?</summary><p>Browsers block pages from reading most websites directly. Set a proxy you control in Sources &amp; Import, press <b>Try direct fetch</b>, or download the feed and import the file.</p></details>' +
+      '<details><summary>Why does the CISA feed say Offline Seed Mode?</summary><p>Live CISA feeds cannot be read straight from a browser; they need an intranet proxy. Until one is set, the app works from the cached plant bulletins. Set a proxy address in Sources &amp; Import, press <b>Try direct fetch</b>, or download the feed and import the file.</p></details>' +
       '<details><summary>How do I check a downloaded hotfix?</summary><p>Open a patch record, paste the SHA-256 published by the vendor, choose the downloaded file and compare. The file is hashed on your device and never uploaded.</p></details>' +
       '<details><summary>Can I trust the reboot and downtime values?</summary><p>Treat them as your own planning notes. Seed values are examples; confirm every restart requirement in the vendor documentation and test on a non-production galaxy.</p></details>' +
       '<details><summary>How do I get a work order for the maintenance team?</summary><p>Flag items with <b>+ Plan</b>, fill in node, site and downtime in the drawer, open <a href="#/flagged">Shutdown Plan</a> and choose <b>Export shutdown report</b> (printable work order, CSV, text or JSON).</p></details></div>' +
@@ -1167,7 +1254,34 @@
       $('#btnInstall').hidden = !PWA.canInstall;
     },
     'goto-storage': () => { location.hash = '#/storage'; },
-    'clear-filters': () => { S.f = { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc' }; render(); },
+    'clear-filters': () => { S.f = { q: '', component: '', category: '', severity: '', status: 'all', site: '', sort: 'date-desc', chips: { crit: false, reboot: false, site: '' } }; render(); },
+    'chip': (el) => {
+      const k = el.dataset.chip, c = S.f.chips;
+      if (k === 'dwtc' || k === 'fuj') c.site = c.site === k ? '' : k; // the two site chips are mutually exclusive
+      else c[k] = !c[k];
+      render();
+      const again = document.querySelector('[data-chip="' + k + '"]');
+      if (again) again.focus({ preventScroll: true });
+    },
+    'acc-toggle': (el) => {
+      const comp = el.dataset.comp, set = collapsedComps();
+      const collapse = !set.has(comp);
+      if (collapse) set.add(comp); else set.delete(comp);
+      saveCollapsed();
+      el.setAttribute('aria-expanded', String(!collapse));
+      el.querySelector('.acc-arrow').textContent = collapse ? '▼' : '▲';
+      const sec = el.closest('.acc');
+      sec.classList.toggle('collapsed', collapse);
+      sec.querySelector('.acc-body').hidden = collapse;
+    },
+    'acc-all': (el) => {
+      const set = collapsedComps();
+      $$('.acc').forEach((sec) => { if (el.dataset.mode === 'collapse') set.add(sec.dataset.comp); else set.delete(sec.dataset.comp); });
+      saveCollapsed();
+      render();
+      const again = document.querySelector('[data-action="acc-all"][data-mode="' + el.dataset.mode + '"]');
+      if (again) again.focus({ preventScroll: true });
+    },
     'open-export': () => { updateExportInfo(); const d = $('#exportDlg'); if (!d.open) d.showModal(); },
     'export-download': () => { const x = buildExport(); downloadBlob(x.text, x.name, x.mime); toast('Report downloaded (' + x.count + ' items)', 'ok'); },
     'export-print': () => {
@@ -1214,7 +1328,7 @@
       el.disabled = true;
       try {
         const r = await FEEDS.syncAll({ origin: 'manual', direct: [el.dataset.id] });
-        toast(r.feeds ? r.message : 'Direct fetch blocked by the browser — a CORS proxy is required', r.feeds ? 'ok' : 'warn');
+        toast(r.feeds ? r.message : 'Live fetch not available — set an intranet proxy or use manual import', r.feeds ? 'ok' : 'warn');
       } catch (err) { toast('Sync failed: ' + err.message, 'err'); } finally { await refresh(true); }
     },
     'delete-feed': async (el) => {
@@ -1237,7 +1351,13 @@
       toast('Settings saved', 'ok');
       await refresh(true);
     },
-    'dismiss-banner': async () => { await DB.setSettings({ bannerDismissed: true }); await refresh(true); },
+    'dismiss-banner': async () => {
+      // Permanent for this browser (localStorage flag) and mirrored into the IndexedDB settings store.
+      LS.set(BANNER_KEY, 'true');
+      try { await DB.setSettings({ bannerDismissed: true }); } catch (_) { /* the localStorage flag still applies */ }
+      await refresh(true);
+      const v = $('#view'); if (v) v.focus({ preventScroll: true });
+    },
     'request-persist': async () => {
       const r = await DB.requestPersistence();
       toast(r.granted ? 'Persistent storage granted' : (r.supported ? 'The browser declined persistent storage. Installing the app or bookmarking the site usually helps.' : 'Persistent storage is not supported'), r.granted ? 'ok' : 'warn');

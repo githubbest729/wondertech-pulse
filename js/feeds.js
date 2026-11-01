@@ -487,12 +487,12 @@
     if (!t) throw new Error('Empty input');
     if (t[0] === '<') {
       const recs = parseFeedXml(t, srcName);
-      if (!recs.length) throw new Error('No <item> or <entry> elements found in XML');
+      if (!recs.length) throw new Error('No bulletins found in this file');
       if (defaultComponent) recs.forEach((r) => { if (r.component === 'System Platform') r.component = defaultComponent; });
       return { records: recs, format: 'xml' };
     }
     let obj;
-    try { obj = JSON.parse(t); } catch (e) { throw new Error('Input is neither XML nor valid JSON'); }
+    try { obj = JSON.parse(t); } catch (e) { throw new Error('This content is not a recognised bulletin feed or report'); }
     if (obj && typeof obj.schema === 'string' && obj.schema.indexOf('wondertech-pulse/') === 0) return { backup: obj, format: 'backup' };
     let list = [];
     if (Array.isArray(obj)) list = obj;
@@ -521,7 +521,7 @@
       return await res.text();
     } catch (err) {
       if (err && err.name === 'AbortError') throw new Error('Timed out after ' + ((timeoutMs || 15000) / 1000) + 's');
-      if (err instanceof TypeError) throw new Error('Network or CORS error — configure a CORS proxy or import the file manually');
+      if (err instanceof TypeError) throw new Error('Could not reach this source from the browser — set an intranet proxy or import the file manually');
       throw err;
     } finally {
       if (timer) clearTimeout(timer);
@@ -558,7 +558,7 @@
     const status = {};
 
     const direct = new Set((opts && opts.direct) || []);
-    const PROXY_MSG = 'CORS proxy required for direct browser RSS fetch — seed and manual import active';
+    const PROXY_MSG = 'ℹ Offline Seed Mode: Live CISA feeds require an intranet proxy. You can use manual import or browse cached plant bulletins below.';
     summary.skipped = 0;
 
     for (const f of feeds) {
@@ -567,7 +567,7 @@
       if (blockedByCors && !direct.has(f.id)) {
         // Not requested at all: no network call, no console error. Shown as an info chip in Sources & Import.
         summary.skipped++;
-        status[f.id] = { lastTry: Date.now(), lastStatus: 'Waiting for CORS proxy', lastInfo: PROXY_MSG, lastError: null };
+        status[f.id] = { lastTry: Date.now(), lastStatus: 'Offline Seed Mode', lastInfo: PROXY_MSG, lastError: null };
         continue;
       }
       summary.feeds++;
@@ -617,7 +617,7 @@
     summary.pruned = pruned;
     summary.message = summary.feeds
       ? 'Synced ' + summary.ok + '/' + summary.feeds + ' feeds · ' + summary.added + ' new · ' + summary.updated + ' updated'
-      : (summary.skipped ? 'Local archive verified · ' + summary.skipped + ' live feed(s) waiting for a CORS proxy' : 'Local archive verified · no custom feeds configured');
+      : (summary.skipped ? 'Local archive verified · ' + summary.skipped + ' live feed(s) waiting for an intranet proxy' : 'Local archive verified · no custom feeds configured');
     await DB.log(
       summary.origin === 'manual' ? 'sync' : summary.origin,
       summary.message + (pruned ? ' · retention removed ' + pruned.removedArticles + ' article(s)' : ''),

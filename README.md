@@ -8,6 +8,15 @@ Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.)
 
 ---
 
+## What's new in v1.5
+
+- **Sidebar fix:** *User Guide & Quickstart* now uses the same line-icon (SVG book) as the other items, with matching padding and hover state, below a divider. The stray box before the label is gone.
+- **Patch Matrix:** a *Compatibility Quick-Check* grid sits at the top (System Platform / InTouch / Historian 2023 R2 against Win 11 / Server 2022, SQL Server 2022, OPC UA V1.05 and Status, shown as `✔ Supported` or `⚠ Requires Hotfix`). The Status column also turns amber while an unreviewed critical/high 2023 R2 patch exists for that component. The grid values are an illustrative planning reference, not vendor data. Each component is a collapsible card (`▲` open / `▼` closed) with an update-count badge such as `System Platform  3 updates`, plus Expand all / Collapse all; open/closed state is remembered per device. *Impacted versions* and *Fixed in* are dark-slate monospaced pills.
+- **Plain-English Sources page:** feed status reads "ℹ Offline Seed Mode: Live CISA feeds require an intranet proxy. You can use manual import or browse cached plant bulletins below." Terms such as CORS, Cross-Origin and XML parse failure no longer appear (older saved status text is translated on display).
+- **One-time banner dismissal:** the seed-data banner's ✕ saves `wtp_banner_dismissed = true` in `localStorage` (mirrored in IndexedDB settings) and the banner stays off every view.
+- **Search and quick filters:** new search placeholder, and four one-touch chips above the list on **Intel Feed** and **Patch Matrix**: Critical Only, Requires Reboot, DWTC Plant, Fujairah (the two site chips are mutually exclusive). The chips only apply on those two views, so no other view is filtered by a hidden state.
+- IndexedDB stores, service worker (cache version `1.5.0`) and offline behaviour are unchanged. axe-core reports 0 WCAG 2.2 AA violations on the matrix (desktop and 390 px), feed, CISA and Sources views.
+
 ## What's new in v1.4
 
 - **Guide button and page:** a **Guide** button (`aria-label="Open application user guide and interactive tour"`) sits beside the search box, and **User Guide & Quickstart** is the last sidebar link (`#/guide`). The page explains why the app exists, the four-step quickstart with shortcuts to each view, what every button and badge means, keyboard shortcuts, how your data and offline mode work, and a short FAQ.
