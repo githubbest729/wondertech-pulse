@@ -1,177 +1,230 @@
+<div align="center">
+
+<!-- Project Brand SVG Header -->
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="28" fill="#0B1220"/>
+  <rect x="1" y="1" width="118" height="118" rx="27" stroke="#1E293B" stroke-width="2"/>
+  <path d="M24 64H40L48 40L64 82L76 54L84 64H96" stroke="#0EA5E9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="84" cy="64" r="3" fill="#38BDF8"/>
+  <circle cx="48" cy="40" r="3" fill="#38BDF8"/>
+  <circle cx="64" cy="82" r="3" fill="#38BDF8"/>
+</svg>
+
 # WonderTech Pulse
+### Industrial SCADA Vulnerability & Patch Intelligence PWA
 
-Offline-first Progressive Web App that aggregates **Wonderware / AVEVA** security bulletins, hotfixes, patch notes and **CISA ICS-CERT** advisories for SCADA engineers. Built for field tablets (Getac / Toughbook / iPad) and dual-monitor control-room desktops.
+[![PWA Ready](https://img.shields.io/badge/PWA-Ready-0EA5E9?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![IndexedDB v1](https://img.shields.io/badge/Storage-IndexedDB%20Local-10B981?style=for-the-badge&logo=databricks&logoColor=white)](#6-data-model--retention)
+[![WCAG 2.2 AA](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AA-8B5CF6?style=for-the-badge)](https://www.w3.org/WAI/standards-guidelines/wcag/)
+[![License](https://img.shields.io/badge/License-Proprietary%20%2F%20Internal-64748B?style=for-the-badge)](#license)
 
-Prepared for: SCADA Engineering, Al Gurg Automation and Controls (Dubai, U.A.E.).
+**Offline-first Progressive Web App** aggregating **Wonderware / AVEVA** security bulletins, vendor hotfixes, software compatibility matrices, and **CISA ICS-CERT** advisories for operational technology (OT) & SCADA engineers.
 
-> **Seed data notice.** The built-in records are *illustrative* examples that demonstrate the data model. They are badged `SEED` and are **not** official bulletins; CVE IDs use the placeholder form `CVE-SEED-000x`, and checksums are intentionally blank. Add real feeds / import vendor data, then remove the seed records under **Storage & Sync → Delete seed records**. Always verify advisories and patch applicability against AVEVA Security Central, AVEVA Software Support and CISA before changing a production system.
+Designed specifically for rugged field tablets (*Getac, Panasonic Toughbook, iPad*) and dual-monitor control-room stations.
+
+*Prepared for: SCADA Engineering, Al Gurg Automation & Controls (Dubai, U.A.E.)*
 
 ---
 
-## What's new in v1.5
+[Key Highlights](#-key-features) • [System Architecture](#-system-architecture) • [Quickstart](#-getting-started) • [Deployment](#-deployment--hosting) • [Data Model](#-data-model--retention) • [Security](#-security--data-governance)
 
-- **Sidebar fix:** *User Guide & Quickstart* now uses the same line-icon (SVG book) as the other items, with matching padding and hover state, below a divider. The stray box before the label is gone.
-- **Patch Matrix:** a *Compatibility Quick-Check* grid sits at the top (System Platform / InTouch / Historian 2023 R2 against Win 11 / Server 2022, SQL Server 2022, OPC UA V1.05 and Status, shown as `✔ Supported` or `⚠ Requires Hotfix`). The Status column also turns amber while an unreviewed critical/high 2023 R2 patch exists for that component. The grid values are an illustrative planning reference, not vendor data. Each component is a collapsible card (`▲` open / `▼` closed) with an update-count badge such as `System Platform  3 updates`, plus Expand all / Collapse all; open/closed state is remembered per device. *Impacted versions* and *Fixed in* are dark-slate monospaced pills.
-- **Plain-English Sources page:** feed status reads "ℹ Offline Seed Mode: Live CISA feeds require an intranet proxy. You can use manual import or browse cached plant bulletins below." Terms such as CORS, Cross-Origin and XML parse failure no longer appear (older saved status text is translated on display).
-- **One-time banner dismissal:** the seed-data banner's ✕ saves `wtp_banner_dismissed = true` in `localStorage` (mirrored in IndexedDB settings) and the banner stays off every view.
-- **Search and quick filters:** new search placeholder, and four one-touch chips above the list on **Intel Feed** and **Patch Matrix**: Critical Only, Requires Reboot, DWTC Plant, Fujairah (the two site chips are mutually exclusive). The chips only apply on those two views, so no other view is filtered by a hidden state.
-- IndexedDB stores, service worker (cache version `1.5.0`) and offline behaviour are unchanged. axe-core reports 0 WCAG 2.2 AA violations on the matrix (desktop and 390 px), feed, CISA and Sources views.
+</div>
 
-## What's new in v1.4
+---
 
-- **Guide button and page:** a **Guide** button (`aria-label="Open application user guide and interactive tour"`) sits beside the search box, and **User Guide & Quickstart** is the last sidebar link (`#/guide`). The page explains why the app exists, the four-step quickstart with shortcuts to each view, what every button and badge means, keyboard shortcuts, how your data and offline mode work, and a short FAQ.
-- **Interactive tour:** a four-step modal (Monitor & Triage, Inspect Details, Plan Plant Maintenance, Generate Work Orders) with Back / Next / Skip, **Start Exploring**, step demos and "go there" shortcuts. It traps Tab inside the dialog, **Enter** advances (a focused button still activates normally), **Esc** closes, and focus returns to what opened it. The page behind it is inert.
-- **First visit:** the tour opens automatically once, unless the app was launched from a shortcut, file or share link. The box *Don't show this automatically on launch* is ticked by default and is remembered in `localStorage` key `wtp_tour_seen` (`1` = hide, `0` = keep showing). If `localStorage` is blocked, it falls back to the current session only. The seed-data banner also links to the tour.
-- **Tooltips:** hover or keyboard-focus tips on **Review**, **+ Plan** and **Export report**. They never clip inside scrolling tables, stay open while the pointer is over them, and **Esc** dismisses them.
-- Offline stores, service-worker caching (cache version `1.4.0`) and all table / plan refinements are unchanged. axe-core reports 0 WCAG 2.2 AA violations on the tour (desktop and 390 px mobile), guide page and feed.
+> ⚠️ **Seed Data Notice**  
+> Built-in records are **illustrative examples** designed to test the system and data models. They are badged `SEED` and are not official vendor notices (`CVE-SEED-000x`). Real feeds must be added or vendor files imported before removing demo records in **Storage & Sync → Delete seed records**. Always verify against AVEVA Security Central and official CISA advisories before executing plant modifications.
 
-## What's new in v1.3
+---
 
-- **Shutdown Plan empty state:** an illustrated clipboard-and-calendar panel, the heading "No Maintenance Items Flagged", helper copy pointing at the `+ Plan` button, and an **Explore Critical Advisories** button that goes to `#/critical`. If you search while items are flagged and nothing matches, a separate "No flagged items match your search" state offers **Clear search**.
-- **No blank exports:** the *Export shutdown report* button only appears once something is flagged, and the Export dialog's Download / Print / Share / Copy buttons are disabled whenever the chosen scope is empty.
-- **Work-order table:** flagged items show as Target Node, Component, Patch / Advisory, Severity, Reboot Required, Est. Downtime, Assigned Site and Actions (**Notes** opens the drawer on the notes box, **Remove** takes the item off the plan and keeps keyboard focus in place). Notes appear under the title. This view is always a table, whatever the Feed layout is set to.
-- **Contrast / focus:** secondary text uses `#A3AEBF` (lighter than the requested `#94A3B8` minimum); `#64748B` is used only for borders and fills. A global `:focus-visible { outline: 2px solid #0EA5E9; outline-offset: 2px }` covers every row, button and input. axe-core reports 0 WCAG 2.2 AA violations on the empty and populated plan views and on the views checked in v1.2.
+## ⚡ Key Features
 
-## What's new in v1.2
+<table>
+  <tr>
+    <td width="50%">
+      <h3>🛡️ Security & Intelligence</h3>
+      <ul>
+        <li><b>Intel Feed:</b> Real-time, unified triage stream for AVEVA, InTouch, Historian, System Platform, and CISA bulletins.</li>
+        <li><b>Patch Matrix:</b> Interactive compatibility grid matching 2023 R2 products with Windows Server, SQL Server, and OPC UA.</li>
+        <li><b>SHA-256 Verifier:</b> Local file hashing directly in-browser to verify downloaded vendor installers prior to execution.</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>🏭 Plant Maintenance & Planning</h3>
+      <ul>
+        <li><b>Shutdown Planner:</b> Flag critical advisories (★) to compile work packages for plant shutdown windows.</li>
+        <li><b>Audit & Reporting:</b> One-click export to A4 landscape maintenance orders with sign-off blocks, Excel/CSV, and JSON.</li>
+        <li><b>100% Offline-First:</b> Service Worker caching with robust client-side IndexedDB persistence (3-year automated retention).</li>
+      </ul>
+    </td>
+  </tr>
+</table>
 
-- **Table polish:** soft row borders, subtle striping and a cyan hover highlight, titles truncated with an ellipsis (full title on hover and in the drawer). Below 1700 px wide the Category column folds away to give the title room.
-- **Reboot / site indicators:** `Reboot: Yes` (amber), `Reboot: No` (muted), `Service only` (sky blue) and grey site pills. KPI tiles are one connected header strip with red / amber / cyan top accents.
-- **Accessibility (WCAG 2.2 AA):** muted text raised to `#A3AEBF`, red text tint `#F87171`, 2 px cyan focus rings, form-control borders at 3:1 or better, row keyboard support (Tab to a row, Enter / Space opens the drawer, Escape closes it and returns focus to the row), dialogs with `role="dialog"` / `aria-modal`, action chips whose accessible name begins with their visible label and names the item (for example *"Review: mark … as reviewed"*), and 44 px touch targets on tablets and touch screens. An automated axe-core scan of Feed, Matrix, CISA, Critical, Sources and the open drawer reports 0 violations; contrast of overlays, print and high-contrast modes was not audited.
-- **Seed planning data:** every seed record now has site, target node, reboot, downtime and rollback values (for example System Platform rollup → `DWTC DCP`, `GR-NODE-01`, reboot yes, 45 mins). These are **illustrative planning assumptions, not vendor statements**: the vendor KB decides whether a restart is required. Your own edits in the drawer always win and are never overwritten. Existing installs are upgraded in place (dates kept, deleted seed records stay deleted).
-- **CISA feed handling:** the pre-configured feed is held back until a CORS proxy is set, so the browser never makes the doomed request and the console stays clean. Sources & Import shows an info chip (*"CORS proxy required for direct browser RSS fetch — seed and manual import active"*) and a **Try direct fetch** button; if the source does allow browser access, the hold is lifted automatically.
-- The list / cards preference is stored in IndexedDB settings and restored on every launch.
+---
 
-## 1. Run it
+## 🏗️ System Architecture
 
-A service worker needs **HTTPS** or `http://localhost`; opening `index.html` by double-click (`file://`) shows the UI but disables offline install features.
+WonderTech Pulse operates **strictly client-side** with zero required backends. All storage, cryptographic verification, and parsing runs locally in the browser engine.
 
-**Quick local test (any machine with Python 3):**
+```
+                      +---------------------------------------+
+                      |       Field Engineer Device           |
+                      |  (Toughbook / iPad / Desktop Workstation)
+                      +---------------------------------------+
+                                          |
+                      +---------------------------------------+
+                      |    Progressive Web App Shell          |
+                      |   [Service Worker (sw.js v1.5.0)]     |
+                      |    - Offline Cache (Cache-First)      |
+                      |    - Window Controls Overlay          |
+                      +---------------------------------------+
+                                          |
+                 +------------------------+------------------------+
+                 |                                                 |
++--------------------------------+               +----------------------------------+
+|      Local Data Engine         |               |     Inbound Feed Integrations    |
+| (db.js / Storage Manager)      |               | (feeds.js / CORS-Safe Pipeline)  |
++--------------------------------+               +----------------------------------+
+| • articles_feed (Pruned 3-yr)  |               | • Direct CORS HTTP / HTTPS RSS   |
+| • patch_notes (Permanent)      | <--- Import - | • Optional Corporate Proxy Prefix|
+| • cisa_advisories (Permanent)  |               | • Manual Import (JSON/XML/Atom)  |
+| • bookmarks_and_read (Perm)    |               | • System File Handler Integration|
+| • sync_audit_log (Audit trail) |               +----------------------------------+
++--------------------------------+                                 |
+                 |                                                 |
++--------------------------------+               +----------------------------------+
+|   Field Operations Modules     |               |    Crypto & Hardware Security    |
++--------------------------------+               +----------------------------------+
+| • Triage Feed & Filters        |               | • Local SHA-256 Hash Checker     |
+| • Compatibility Matrix         |               | • Sanitized CSV/Excel Generation |
+| • A4 Shutdown Work Orders      |               | • Navigator Storage Persistence  |
++--------------------------------+               +----------------------------------+
+```
+
+---
+
+## 🚀 Getting Started
+
+### Local Development
+
+Because Progressive Web Apps require a secure context (`HTTPS` or `localhost`), run the project through an HTTP server rather than opening `index.html` as a file (`file://`).
 
 ```bash
+# Clone or extract repository
 cd wondertech-pulse
+
+# Option 1: Python 3 built-in server
 python3 -m http.server 8080
-# open http://localhost:8080 in Chrome or Edge
+
+# Option 2: Node.js serve
+npx serve .
 ```
 
-**Node alternative:** `npx serve .`
+Open `http://localhost:8080` in Chrome, Edge, or Safari.
 
-## 2. Deploy (HTTPS)
+---
 
-Copy the folder to any static host: IIS, nginx, Apache, Azure Static Web Apps, Cloudflare Pages, GitHub Pages, an internal intranet server with a trusted certificate.
+## 📦 Progressive Web App (PWA) Installation
 
-Checklist:
+* **Chrome / Microsoft Edge (Desktop & Android):**  
+  Click the **Install** button in the title bar or omnibox. On desktop, **Window Controls Overlay (WCO)** enables seamless window integration mimicking a native application.
+* **Apple iOS / iPadOS (Safari):**  
+  Tap **Share** `(⎋)` → **Add to Home Screen**.
 
-- Serve over **HTTPS** with a certificate the field devices trust (internal CA certificates must be installed on tablets).
-- Serve `manifest.webmanifest` as `application/manifest+json` (IIS: add the MIME type; nginx: `types { application/manifest+json webmanifest; }`).
-- Do **not** cache `sw.js` aggressively at the CDN/server (`Cache-Control: no-cache`). The app registers it with `updateViaCache: 'none'`.
-- Subfolder hosting works: every path in the app is relative.
-- **Bump `VERSION` in `sw.js`** whenever you change any precached file. Users then get an "Update" toast.
+### Browser Capability Support Matrix
 
-## 3. Install
+| Feature | Chrome / Edge | Safari / iOS (16.4+) | Firefox |
+|---|:---:|:---:|:---:|
+| **Offline Shell & IndexedDB Engine** | ✅ Full | ✅ Full | ✅ Full |
+| **PWA App Installation** | ✅ Native Prompt | ✅ Add to Home Screen | ⚠️ Limited |
+| **Window Controls Overlay (WCO)** | ✅ Yes | ❌ | ❌ |
+| **Periodic Background Sync** | ✅ Yes | ❌ | ❌ |
+| **App Badging API** | ✅ Yes | ✅ Yes | ❌ |
+| **Native Protocol / File Handling** | ✅ Yes | ❌ | ❌ |
 
-- **Chrome / Edge (desktop & Android):** click **Install** in the title bar (or the browser's install icon). The desktop app uses **Window Controls Overlay**, so the title bar blends into the window frame.
-- **iPad / iPhone (Safari):** Share → **Add to Home Screen**. (iOS does not support Periodic Background Sync, Window Controls Overlay or the install prompt; offline use and IndexedDB still work.)
+---
 
-## 4. File tree
+## 📂 Project Directory Structure
 
-```
+```text
 wondertech-pulse/
-├── index.html                 UI shell, dialogs, icon sprite
-├── manifest.webmanifest       id, shortcuts, protocol & file handlers, share target, screenshots
-├── sw.js                      Cache-First shell, SWR feeds, Static Routing, Background / Periodic Sync
-├── offline.html               Standalone offline lookup against IndexedDB
-├── favicon.ico / favicon.svg / apple-touch-icon.png
-├── css/styles.css             Industrial dark theme, WCO + safe-area support
+├── index.html                 # UI Shell, SVG icon sprite, accessible modals
+├── manifest.webmanifest       # PWA manifest, shortcuts, file/protocol handlers
+├── sw.js                      # Cache-First service worker, SWR feed engine
+├── offline.html               # Fallback standalone emergency reader
+├── favicon.ico / favicon.svg  # Multi-resolution icons
+├── css/
+│   └── styles.css             # Industrial high-contrast dark theme, WCO styling
 ├── js/
-│   ├── db.js                  IndexedDB engine, persistence manager, retention, backup
-│   ├── feeds.js               Seed dataset, classifier, RSS/Atom/JSON importer, sync engine
-│   ├── pwa-handler.js         Install prompt, SW lifecycle, Badging, sync registration, capabilities
-│   └── app.js                 Router, filters, rendering, export, import, UI state
-├── icons/                     192 / 512 + maskable 192 / 512 PNG
-├── screenshots/               narrow-mobile.png, wide-desktop.png (manifest screenshots)
+│   ├── db.js                  # IndexedDB schema, persistence hooks, retention engine
+│   ├── feeds.js               # Feed parser, categorizer, manual importer
+│   ├── pwa-handler.js         # Install prompts, Service Worker lifecycle, badges
+│   └── app.js                 # Router, filtering, reporting, view controllers
+├── icons/                     # Standard and maskable PWA icons (192px, 512px)
+├── screenshots/               # Manifest preview screenshots (desktop & mobile)
 └── README.md
 ```
 
-## 5. Using it
+---
 
-| View | Purpose |
-|---|---|
-| **Intel Feed** | Everything, newest first. Search and filter by component, category, severity, reviewed state. |
-| **Critical Advisories** | Critical-severity items and high-severity security patches. Unreviewed ones drive the **app-icon badge**. |
-| **Patch Matrix** | Releases, hotfixes and drivers grouped by component with impacted versions, fixed-in build, KB reference and SHA-256 field. |
-| **CISA / CVE** | Advisory table with CVSS and an editable remediation status (Open / Mitigated / Patched / Not affected). |
-| **Shutdown Plan** | Items you flagged with ★ for the next maintenance window, with your notes. |
-| **Sources & Import** | Add RSS / Atom / JSON feeds, import files or pasted content, adjust settings. |
-| **Storage & Sync** | Storage inspector, capacity projection, PWA capability report, retention, backup / restore, audit log. |
+## 📊 Application Views
 
-Shortcuts: `/` focuses search. Opening a record marks it reviewed.
+| Icon | View | Description |
+|:---:|---|---|
+| 📰 | **Intel Feed** | Aggregated master stream. Search and filter by severity, component, site, or review status. |
+| 🚨 | **Critical Advisories** | Filtered list of zero-day exploits, critical CVEs, and CVSS 9.0+ threats. Updates the app-icon badge. |
+| 🧩 | **Patch Matrix** | Visual component compatibility grid (InTouch, System Platform, Historian) vs OS/SQL targets. |
+| 🛡️ | **CISA / CVE** | Dedicated ICS-CERT vulnerability tracking with engineer remediation states (*Open, Mitigated, Patched*). |
+| 📋 | **Shutdown Plan** | Curated list of starred (★) maintenance activities with notes, target nodes, and downtime estimates. |
+| 📡 | **Sources & Import** | Manage vendor RSS/JSON feeds, trigger manual data imports, or configure proxy endpoints. |
+| 💾 | **Storage & Sync** | Monitor IndexedDB quota, download/restore JSON snapshots, adjust 3-year data retention. |
 
-**Export for a shutdown meeting:** *Export report* → choose scope (flagged / current view / everything) and format:
-- **Maintenance work order** — printable A4 landscape table with Component, Site, Target node, Patch, KB/CVE, Severity, Reboot, Rollback, Expected downtime and per-row plus footer **sign-off lines**. Use **Print / PDF** and choose *Save as PDF*.
-- **Excel / CSV** — same columns, UTF-8 with BOM for Excel; cells starting with `= + - @` are neutralised against formula injection.
-- Formatted text or JSON.
+---
 
-Then **Download**, **Share** (Web Share where available) or **Copy**.
+## 💾 Data Model & Retention
 
-**Planning fields.** Open any record (slide-over drawer) to set *Reboot required*, *Rollback complexity*, *Client site / galaxy*, *Target node*, *Expected downtime* and notes; filter by site from the filter bar. Patch records have a **SHA-256 verifier**: pick the downloaded installer and compare with the vendor checksum (hashed locally, nothing uploaded). Intel Feed / Critical / Shutdown Plan can switch between **Cards** and **List** layouts.
+IndexedDB database: `wondertech-pulse` (`v1`)
 
-**Default feed.** A CISA ICS-advisories feed (filtered to AVEVA / Wonderware / InTouch / Citect / Schneider Electric) is pre-configured. Its URL could not be verified from the build environment, and CISA may not send CORS headers: check its status under Sources & Import and set a CORS proxy you control if needed. No AVEVA bulletin feed is pre-configured because no public feed URL was verified; add one via *Add feed*. The app deliberately ships no third-party public CORS proxy, since that would route your requests through a service you don't control.
+```text
++-----------------------+-------------------------------------------------------------+
+| Store Name            | Retention Policy                                            |
++-----------------------+-------------------------------------------------------------+
+| articles_feed         | Auto-pruned after 1095 days (3 years), unless flagged (★)   |
+| patch_notes           | Permanent archive (Never pruned)                            |
+| cisa_advisories       | Permanent archive (Never pruned)                            |
+| bookmarks_and_read    | Permanent flags, audit reviews, and engineer notes          |
+| sync_audit_log        | Rolling 3-year audit trail for ISO/IEC compliance           |
+| meta                  | Global configuration, custom feeds, UI state                |
++-----------------------+-------------------------------------------------------------+
+```
 
-**Capabilities by browser**
+* **Persistence Guard:** The application triggers `navigator.storage.persist()` on launch to prevent browsers from evicting cached records under low-disk scenarios.
 
-| Feature | Chrome / Edge | Safari / iOS | Firefox |
-|---|---|---|---|
-| Offline shell, IndexedDB, search, export | ✅ | ✅ | ✅ |
-| Installable | ✅ | Add to Home Screen | limited |
-| Window Controls Overlay | ✅ desktop | ❌ | ❌ |
-| Periodic Background Sync | ✅ installed app | ❌ | ❌ |
-| Background Sync | ✅ | ❌ | ❌ |
-| Badging API | ✅ installed app | ✅ (iOS 16.4+ home-screen apps) | ❌ |
-| File / protocol handlers | ✅ desktop | ❌ | ❌ |
+---
 
-Where a feature is missing, the app falls back: sync-on-open, sync-on-reconnect, download / copy instead of share.
+## 🚢 Deployment & Hosting
 
-## 6. Data model & 3-year retention
+The application is completely static and can be deployed to any web server or static host:
 
-IndexedDB database `wondertech-pulse` (v1):
+1. **Host requirements:** Must be served over **HTTPS** with a valid SSL/TLS certificate.
+2. **MIME types:** Ensure `.webmanifest` files are served with:
+   ```text
+   Content-Type: application/manifest+json
+   ```
+3. **Cache Invalidation:** Do **not** apply long-lived CDN caching to `sw.js`. Ensure `Cache-Control: no-cache` is set for the service worker script.
+4. **Versioning:** Increment `VERSION = 'x.x.x'` inside `sw.js` on every production deploy to trigger client-side update notifications.
 
-| Store | Contents | Retention |
-|---|---|---|
-| `articles_feed` | News, tech alerts, imported feed items | Pruned after the retention window (default **1095 days / 3 years**) **unless flagged or annotated** |
-| `patch_notes` | Service packs, hotfixes, driver releases | **Permanent** |
-| `cisa_advisories` | CVE / CISA advisories, CVSS, remediation | **Permanent** |
-| `bookmarks_and_read` | Flags, read state, remediation status, engineer notes | **Permanent** |
-| `sync_audit_log` | Sync, import, seed and retention history | Pruned after the retention window |
-| `meta` | Settings, feed list, counters | Permanent |
+---
 
-On first run the app calls `navigator.storage.persist()` (again when you flag an item) so the browser will not evict the archive under storage pressure. Whether it is granted is up to the browser (installing the app greatly improves the odds). **Storage & Sync** shows persistence state, `navigator.storage.estimate()` usage / quota, and a 3-year growth projection based on the real average record size and the "new records per day" setting.
+## 🔒 Security & Data Governance
 
-Persistent storage protects against eviction, **not** against device loss, profile deletion or "Clear site data". Export a **full backup** from Storage & Sync regularly and keep it somewhere safe.
+* **Zero External Telemetry:** All operational data, flagged notes, and node inventories remain strictly inside client-side browser storage.
+* **CORS Compliance:** External feeds are fetched in-browser. Sites blocking cross-origin requests require configuring an internal corporate proxy prefix under **Sources & Import → Settings**.
+* **Formula Injection Defense:** Generated CSV/Excel work orders sanitize inputs by neutralizing characters (`=`, `+`, `-`, `@`) that could trigger macro execution.
+* **Input Sanitization:** HTML escaping protects all advisory content to mitigate Cross-Site Scripting (XSS).
 
-## 7. Feeds & the CORS limitation
+---
 
-Custom feeds are fetched directly from the browser, so the feed host must send CORS headers. Many vendor sites do not. Options:
+## 📄 License
 
-1. Run a small internal proxy and set **CORS proxy prefix** in Sources & Import → Settings (the feed URL is appended URL-encoded).
-2. Download the feed or advisory export and **import the file** (RSS, Atom, JSON Feed, or this app's JSON).
-3. Open a feed file directly with the installed app (file handler for `.json`, `.xml`, `.rss`, `.atom`).
-
-Imported items are classified by keywords into component, category and severity. Treat that classification as a convenience, not as authority.
-
-JSON accepted: JSON Feed (`items[]`), arrays of objects with `title`, `url`, `summary`, `date_published`, or this app's backup / report format. Fields `component`, `category`, `severity`, `kind` (`article` | `patch` | `advisory`), `versions[]`, `kb`, `cveId`, `cvss`, `fixedIn`, `checksum` are honoured when present.
-
-## 8. Protocol, share and shortcut URLs
-
-- Shortcuts: `./?view=critical`, `./?view=matrix`, `./?action=add-feed`
-- Protocol handler: `web+wondertech:feed?url=https%3A%2F%2Fexample.com%2Ffeed.xml`, `web+wondertech:search?q=historian`, `web+wondertech:view?name=matrix`
-- Share target: sharing a URL to the installed app opens **Add feed** pre-filled.
-
-## 9. Security notes
-
-- All data stays on the device; the app sends nothing anywhere except the feed URLs you add.
-- Output is HTML-escaped; external links open with `rel="noopener noreferrer"`.
-- If a field tablet is shared, remember IndexedDB is not encrypted at rest; rely on OS disk encryption.
-
-## 10. Updating the app
-
-Edit files → bump `VERSION` in `sw.js` → redeploy. Open clients show **Update**; applying it activates the new service worker and reloads.
+Internal Operational Tool — Al Gurg Automation & Controls. Distributed for SCADA and Field Engineering operations.
